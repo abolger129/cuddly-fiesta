@@ -1,0 +1,40 @@
+import { router } from 'expo-router';
+import { useState } from 'react';
+
+import { Button } from '@/components/button';
+import { Screen } from '@/components/screen';
+import { TextField } from '@/components/text-field';
+import { ThemedText } from '@/components/themed-text';
+import { alertOnError } from '@/lib/errors';
+import { supabase } from '@/lib/supabase';
+
+export default function JoinGroupScreen() {
+  const [code, setCode] = useState('');
+  const [joining, setJoining] = useState(false);
+
+  async function join() {
+    setJoining(true);
+    const { data, error } = await supabase.rpc('join_group', { code: code.trim() });
+    setJoining(false);
+    if (alertOnError('Could not join', error)) return;
+    router.replace(`/group/${data}`);
+  }
+
+  return (
+    <Screen>
+      <ThemedText type="small" themeColor="textSecondary">
+        Ask whoever started the group for its 6-character invite code.
+      </ThemedText>
+      <TextField
+        value={code}
+        onChangeText={(text) => setCode(text.toUpperCase())}
+        placeholder="ABC123"
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={6}
+        autoFocus
+      />
+      <Button title="Join group" onPress={join} loading={joining} disabled={code.trim().length < 6} />
+    </Screen>
+  );
+}

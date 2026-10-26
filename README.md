@@ -7,7 +7,7 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and A
 ## Status
 
 - [x] Foundation: app skeleton, email sign-in, database tables and access rules
-- [ ] Game loop: create and join groups, rounds, song submissions, drag-and-drop ranking, scoring and leaderboard
+- [x] Game loop: create and join groups, rounds, song submissions (typed in for now), drag-and-drop ranking, scoring and leaderboard
 - [ ] Spotify: song search and a playlist per round
 - [ ] Testing with friends (TestFlight, Google Play internal testing), then store release
 
@@ -26,7 +26,7 @@ npm install
 ### 2. Set up Supabase (free)
 
 1. Create a project at [supabase.com](https://supabase.com/dashboard).
-2. Open **SQL Editor**, paste in the contents of [`supabase/migrations/20261022000000_init.sql`](supabase/migrations/20261022000000_init.sql) and run it.
+2. Open **SQL Editor** and run each file in [`supabase/migrations`](supabase/migrations) in order, oldest first: paste in its contents and press Run. When a new file shows up there later, run just that one.
 3. Sign-in uses a 6-digit code sent by email. Under **Authentication > Emails > Templates > Magic Link**, make sure the email body includes `{{ .Token }}` so the code is shown, for example:
 
    ```html
@@ -46,6 +46,16 @@ npx expo start
 
 Press `i` to open the iPhone simulator, `a` for an Android emulator, or scan the QR code with your phone's camera (iPhone) or the Expo Go app (Android).
 
+## How a game works
+
+1. Someone creates a group with a list of categories, one per round, and shares the invite code.
+2. The group creator starts each round. Everyone picks one song that fits the category.
+3. Once everyone has picked (or the creator moves things on), ranking opens. Each player drags the other songs into order, favourite first. Nobody can see who picked what yet.
+4. Once everyone has ranked (or the creator ends voting), the round's results show who picked each song and how many points it got.
+5. The leaderboard adds up points across rounds. Most points after the last round wins.
+
+Scoring lives in [`src/lib/scoring.ts`](src/lib/scoring.ts) so it's easy to change. Right now a voter ranking n songs gives n points to their favourite, down to 1 point for their last pick.
+
 ## Project layout
 
 ```
@@ -60,4 +70,5 @@ supabase/         Database schema and access rules
 ```bash
 npm run lint
 npm run typecheck
+npm test
 ```
