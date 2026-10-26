@@ -55,7 +55,7 @@ export default function GroupsScreen() {
       )}
 
       <View style={styles.footer}>
-        <Button title="Change your name" variant="secondary" onPress={() => router.push('/profile')} />
+        <Button title="Settings" variant="secondary" onPress={() => router.push('/profile')} />
         <Button title="Sign out" variant="secondary" onPress={() => supabase.auth.signOut()} />
       </View>
     </Screen>

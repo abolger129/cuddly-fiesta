@@ -1,0 +1,108 @@
+import { useEffect, useState } from 'react';
+import { Linking } from 'react-native';
+
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { ThemedText } from '@/components/themed-text';
+import { alertOnError } from '@/lib/errors';
+import type { RoundDetails } from '@/lib/round-data';
+import { createPlaylist, isSpotifyConnected, useConnectSpotify } from '@/lib/spotify';
+import { supabase } from '@/lib/supabase';
+
+type PlaylistCardProps = {
+  details: RoundDetails;
+  isCreator: boolean;
+  onChanged: () => void;
+};
+
+/**
+ * The round's Spotify playlist. The group creator makes it on their own
+ * Spotify account once ranking opens; everyone else gets the link.
+ */
+export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProps) {
+  const { round, group, songs } = details;
+  const { connect, connecting } = useConnectSpotify();
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    isSpotifyConnected().then(setConnected);
+  }, []);
+
+  if (round.playlist_url) {
+    const url = round.playlist_url;
+    return (
+      <Card>
+        <ThemedText type="smallBold">Listen to this round</ThemedText>
+        <Button title="Open playlist in Spotify" onPress={() => Linking.openURL(url)} />
+      </Card>
+    );
+  }
+
+  if (!isCreator) {
+    return (
+      <ThemedText type="small" themeColor="textSecondary">
+        Tap a song to hear it on Spotify. A playlist link will show up here once it&apos;s made.
+      </ThemedText>
+    );
+  }
+
+  const trackIds = songs.flatMap((s) => (s.spotify_track_id ? [s.spotify_track_id] : []));
+
+  async function connectAccount() {
+    try {
+      if (await connect()) setConnected(true);
+    } catch (e) {
+      alertOnError('Could not connect Spotify', { message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  async function makePlaylist() {
+    setCreating(true);
+    try {
+      const url = await createPlaylist(
+        `${group.name}: Round ${round.round_number}`,
+        `Music League round ${round.round_number}: ${round.category}`,
+        trackIds
+      );
+      const { error } = await supabase.from('rounds').update({ playlist_url: url }).eq('id', round.id);
+      if (!alertOnError('Playlist made, but the link could not be saved', error)) onChanged();
+    } catch (e) {
+      alertOnError('Could not make the playlist', { message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <Card>
+      <ThemedText type="smallBold">Round playlist</ThemedText>
+      {connected ? (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            Make a playlist of this round&apos;s {trackIds.length} songs on your Spotify account and
+            share it with the group.
+          </ThemedText>
+          <Button
+            title="Make Spotify playlist"
+            onPress={makePlaylist}
+            loading={creating}
+            disabled={trackIds.length === 0}
+          />
+        </>
+      ) : (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            Connect your Spotify account to make a playlist for each round. Only you need to connect;
+            everyone else just gets the link.
+          </ThemedText>
+          <Button
+            title="Connect Spotify"
+            onPress={connectAccount}
+            loading={connecting || connected === null}
+          />
+        </>
+      )}
+    </Card>
+  );
+}
