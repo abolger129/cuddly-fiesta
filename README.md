@@ -7,13 +7,13 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and A
 ## Status
 
 - [x] Foundation: app skeleton, email sign-in, database tables and access rules
-- [x] Game loop: create and join groups, rounds, song submissions (typed in for now), drag-and-drop ranking, scoring and leaderboard
+- [x] Game loop: create and join groups, rounds, song submissions, drag-and-drop ranking, scoring and leaderboard
 - [x] Spotify: song search and a playlist per round
 - [ ] Testing with friends (TestFlight, Google Play internal testing), then store release
 
 ## Run it on your Mac
 
-You need [Node.js](https://nodejs.org) 20 or newer. For the iPhone simulator you also need Xcode from the Mac App Store; or install the **Expo Go** app on your phone instead.
+You need [Node.js](https://nodejs.org) 22.13 or newer (the current LTS is fine). For the iPhone simulator you also need Xcode from the Mac App Store; or install the **Expo Go** app on your phone instead.
 
 ### 1. Install
 
@@ -27,7 +27,7 @@ npm install
 
 1. Create a project at [supabase.com](https://supabase.com/dashboard).
 2. Open **SQL Editor** and run each file in [`supabase/migrations`](supabase/migrations) in order, oldest first: paste in its contents and press Run. When a new file shows up there later, run just that one.
-3. Sign-in uses a 6-digit code sent by email. Under **Authentication > Emails > Templates > Magic Link**, make sure the email body includes `{{ .Token }}` so the code is shown, for example:
+3. Sign-in uses a 6-digit code sent by email. Under **Authentication > Emails > Templates**, edit both **Magic Link** (returning users) and **Confirm signup** (someone's first sign-in) so the email body shows `{{ .Token }}` instead of a link, for example:
 
    ```html
    <h2>Your Music League code</h2>
