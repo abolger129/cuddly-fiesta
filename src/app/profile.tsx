@@ -7,6 +7,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
+import { disconnectSpotify, isSpotifyConnected } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
@@ -14,6 +15,11 @@ export default function ProfileScreen() {
   const userId = session?.user.id;
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+
+  useEffect(() => {
+    isSpotifyConnected().then(setSpotifyConnected);
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -45,6 +51,16 @@ export default function ProfileScreen() {
       </ThemedText>
       <TextField value={name} onChangeText={setName} placeholder="Your name" maxLength={40} autoFocus />
       <Button title="Save" onPress={save} loading={saving} disabled={!name.trim()} />
+      {spotifyConnected && (
+        <Button
+          title="Disconnect Spotify"
+          variant="secondary"
+          onPress={async () => {
+            await disconnectSpotify();
+            setSpotifyConnected(false);
+          }}
+        />
+      )}
     </Screen>
   );
 }

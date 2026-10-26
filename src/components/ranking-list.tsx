@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Linking, Pressable, StyleSheet } from 'react-native';
 import ReorderableList, {
   reorderItems,
   useIsActive,
@@ -11,6 +11,7 @@ import { SongRow } from '@/components/song-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { spotifyTrackUrl } from '@/lib/spotify';
 import type { RoundSong } from '@/lib/types';
 
 type RankingListProps = {
@@ -45,9 +46,11 @@ export function RankingList({ songs, onChange, header, footer }: RankingListProp
 function RankingRow({ song, position }: { song: RoundSong; position: number }) {
   const drag = useReorderableDrag();
   const isActive = useIsActive();
+  const trackId = song.spotify_track_id;
 
   return (
     <Pressable
+      onPress={trackId ? () => Linking.openURL(spotifyTrackUrl(trackId)) : undefined}
       onLongPress={drag}
       delayLongPress={150}
       style={styles.cell}

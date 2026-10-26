@@ -1,12 +1,14 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
 import { SongRow } from '@/components/song-row';
+import { SongSearch } from '@/components/song-search';
 import { StatusLabel } from '@/components/status-label';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -18,6 +20,7 @@ import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
 import { scoreRound } from '@/lib/scoring';
+import { spotifyTrackUrl, type SpotifyTrack } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
 import type { RoundSong } from '@/lib/types';
 
@@ -67,7 +70,9 @@ export default function RoundScreen() {
       {data.round.status === 'submitting' && (
         <Submitting details={data} isCreator={isCreator} onChanged={reload} />
       )}
-      {data.round.status === 'finished' && <Results details={data} />}
+      {data.round.status === 'finished' && (
+        <Results details={data} isCreator={isCreator} onChanged={reload} />
+      )}
     </Screen>
   );
 }
@@ -113,25 +118,20 @@ function Upcoming({ details, isCreator, onChanged }: StageProps) {
 
 function Submitting({ details, isCreator, onChanged }: StageProps) {
   const { round, progress, mySubmission } = details;
+  const [typingIn, setTypingIn] = useState(false);
   const [trackName, setTrackName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function submit() {
+  async function submit(song: Omit<SpotifyTrack, 'spotify_track_id'> & { spotify_track_id: string | null }) {
     setBusy(true);
-    const { error } = await supabase.from('submissions').insert({
-      round_id: round.id,
-      track_name: trackName.trim(),
-      artist_name: artistName.trim(),
-    });
+    const { error } = await supabase.from('submissions').insert({ round_id: round.id, ...song });
     setBusy(false);
     if (!alertOnError('Could not submit your song', error)) onChanged();
   }
 
   async function changePick() {
     if (!mySubmission) return;
-    setTrackName(mySubmission.track_name);
-    setArtistName(mySubmission.artist_name);
     setBusy(true);
     const { error } = await supabase.from('submissions').delete().eq('id', mySubmission.id);
     setBusy(false);
@@ -152,20 +152,48 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
           <ThemedText type="small" themeColor="textSecondary">
             Your pick
           </ThemedText>
-          <SongRow trackName={mySubmission.track_name} artistName={mySubmission.artist_name} />
+          <SongRow
+            trackName={mySubmission.track_name}
+            artistName={mySubmission.artist_name}
+            albumArtUrl={mySubmission.album_art_url}
+          />
           <Button title="Change my pick" variant="secondary" onPress={changePick} loading={busy} />
         </Card>
       ) : (
         <Card>
           <ThemedText type="smallBold">Pick a song that fits</ThemedText>
-          <TextField value={trackName} onChangeText={setTrackName} placeholder="Song title" />
-          <TextField value={artistName} onChangeText={setArtistName} placeholder="Artist" />
-          <Button
-            title="Submit song"
-            onPress={submit}
-            loading={busy}
-            disabled={!trackName.trim() || !artistName.trim()}
-          />
+          {typingIn ? (
+            <>
+              <TextField value={trackName} onChangeText={setTrackName} placeholder="Song title" />
+              <TextField value={artistName} onChangeText={setArtistName} placeholder="Artist" />
+              <ThemedText type="small" themeColor="textSecondary">
+                Typed-in songs can&apos;t go on the Spotify playlist.
+              </ThemedText>
+              <Button
+                title="Submit song"
+                onPress={() =>
+                  submit({
+                    spotify_track_id: null,
+                    track_name: trackName.trim(),
+                    artist_name: artistName.trim(),
+                    album_art_url: null,
+                  })
+                }
+                loading={busy}
+                disabled={!trackName.trim() || !artistName.trim()}
+              />
+              <Button title="Search Spotify instead" variant="secondary" onPress={() => setTypingIn(false)} />
+            </>
+          ) : (
+            <>
+              <SongSearch onPick={submit} disabled={busy} />
+              <Button
+                title="Can't find it? Type it in"
+                variant="secondary"
+                onPress={() => setTypingIn(true)}
+              />
+            </>
+          )}
         </Card>
       )}
 
@@ -239,10 +267,11 @@ function Voting({
         header={
           <View style={styles.votingHeader}>
             {header}
+            <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
             <ThemedText themeColor="textSecondary">
               {progress.has_ranked
                 ? 'Your ranking is saved. You can still change it until everyone has voted.'
-                : 'Hold a song and drag it to rank it. Put your favourite at the top.'}
+                : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it on Spotify.'}
             </ThemedText>
           </View>
         }
@@ -277,15 +306,18 @@ function Voting({
   );
 }
 
-function Results({ details }: { details: RoundDetails }) {
+function Results({ details, isCreator, onChanged }: StageProps) {
   const { submissions, rankings, members } = details;
   const points = scoreRound(rankings);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
 
   return (
     <>
+      <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
       {results.map((s, i) => (
-        <Card key={s.id}>
+        <Card
+          key={s.id}
+          onPress={s.spotify_track_id ? () => Linking.openURL(spotifyTrackUrl(s.spotify_track_id!)) : undefined}>
           <SongRow
             trackName={s.track_name}
             artistName={s.artist_name}
