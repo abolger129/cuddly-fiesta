@@ -7,13 +7,13 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and A
 ## Status
 
 - [x] Foundation: app skeleton, email sign-in, database tables and access rules
-- [x] Game loop: create and join groups, rounds, song submissions (typed in for now), drag-and-drop ranking, scoring and leaderboard
+- [x] Game loop: create and join groups, rounds, song submissions, drag-and-drop ranking, scoring and leaderboard
 - [x] Spotify: song search and a playlist per round
 - [ ] Testing with friends (TestFlight, Google Play internal testing), then store release
 
 ## Run it on your Mac
 
-You need [Node.js](https://nodejs.org) 20 or newer. For the iPhone simulator you also need Xcode from the Mac App Store; or install the **Expo Go** app on your phone instead.
+You need [Node.js](https://nodejs.org) 22.13 or newer (the current LTS is fine). For the iPhone simulator you also need Xcode from the Mac App Store; or install the **Expo Go** app on your phone instead.
 
 ### 1. Install
 
