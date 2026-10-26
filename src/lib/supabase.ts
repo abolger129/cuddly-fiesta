@@ -1,4 +1,4 @@
-import 'expo-sqlite/localStorage/install';
+import '@/lib/local-storage';
 
 import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
