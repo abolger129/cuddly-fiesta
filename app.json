@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Music League",
-    "slug": "music-league",
+    "slug": "the-gauntlet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -42,6 +42,17 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "24c7fea9-584e-4323-94f6-8f7ca68188fe"
+      }
+    },
+    "owner": "betterreads"
   }
 }
