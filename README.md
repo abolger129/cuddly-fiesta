@@ -9,7 +9,7 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and A
 - [x] Foundation: app skeleton, email sign-in, database tables and access rules
 - [x] Game loop: create and join groups, rounds, song submissions, drag-and-drop ranking, scoring and leaderboard
 - [x] Spotify: song search and a playlist per round
-- [ ] Testing with friends (TestFlight, Google Play internal testing), then store release
+- [ ] Testing with friends (TestFlight, Android `.apk` link), then store release. Steps: [docs/testing-with-friends.md](docs/testing-with-friends.md)
 
 ## Run it on your Mac
 
