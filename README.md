@@ -27,7 +27,7 @@ npm install
 
 1. Create a project at [supabase.com](https://supabase.com/dashboard).
 2. Open **SQL Editor** and run each file in [`supabase/migrations`](supabase/migrations) in order, oldest first: paste in its contents and press Run. When a new file shows up there later, run just that one.
-3. Sign-in uses a 6-digit code sent by email. Under **Authentication > Emails > Templates**, edit both **Magic Link** (returning users) and **Confirm signup** (someone's first sign-in) so the email body shows `{{ .Token }}` instead of a link, for example:
+3. Sign-in uses a one-time code sent by email (8 digits by default; the length is under **Authentication > Sign In / Providers > Email**, and the app accepts 6 to 10). Under **Authentication > Emails > Templates**, edit both **Magic Link** (returning users) and **Confirm signup** (someone's first sign-in) so the email body shows `{{ .Token }}` instead of a link, for example:
 
    ```html
    <h2>Your Music League code</h2>
