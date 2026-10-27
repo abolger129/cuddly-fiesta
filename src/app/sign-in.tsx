@@ -9,7 +9,11 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
-// Passwordless sign-in: we email a 6-digit code and the user types it in.
+// Passwordless sign-in: we email a one-time code and the user types it in.
+// Supabase lets the code length be set from 6 to 10 digits (8 by default).
+const MIN_CODE_LENGTH = 6;
+const MAX_CODE_LENGTH = 10;
+
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -52,21 +56,21 @@ export default function SignInScreen() {
 
           {codeSent ? (
             <>
-              <ThemedText type="small">We sent a 6-digit code to {email.trim()}.</ThemedText>
+              <ThemedText type="small">We sent a sign-in code to {email.trim()}.</ThemedText>
               <TextField
                 value={code}
                 onChangeText={setCode}
-                placeholder="123456"
+                placeholder="Code from the email"
                 keyboardType="number-pad"
                 autoComplete="one-time-code"
                 textContentType="oneTimeCode"
-                maxLength={6}
+                maxLength={MAX_CODE_LENGTH}
               />
               <Button
                 title="Sign in"
                 onPress={verifyCode}
                 loading={loading}
-                disabled={code.trim().length < 6}
+                disabled={code.trim().length < MIN_CODE_LENGTH}
               />
               <Button
                 title="Use a different email"
