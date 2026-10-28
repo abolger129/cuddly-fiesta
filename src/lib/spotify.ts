@@ -130,9 +130,9 @@ export function useConnectSpotify() {
 
 // Playlists --------------------------------------------------------------------
 
-async function spotifyFetch(path: string, body: unknown) {
+async function spotifyFetch(path: string, body: unknown, method: 'POST' | 'PUT' = 'POST') {
   const response = await fetch(`https://api.spotify.com/v1${path}`, {
-    method: 'POST',
+    method,
     headers: {
       Authorization: `Bearer ${await getAccessToken()}`,
       'Content-Type': 'application/json',
@@ -153,11 +153,32 @@ export async function createPlaylist(
   trackIds: string[]
 ): Promise<string> {
   const playlist = await spotifyFetch('/me/playlists', { name, description, public: true });
+  await addTracks(playlist.id, trackIds);
+  return playlist.external_urls.spotify;
+}
+
+/** Swap out every song on a playlist made earlier, e.g. to add newer rounds. */
+export async function replacePlaylistTracks(playlistUrl: string, trackIds: string[]) {
+  const playlistId = playlistUrl.match(/playlist\/([A-Za-z0-9]+)/)?.[1];
+  if (!playlistId) throw new Error('That does not look like a Spotify playlist link');
+  // Replacing takes up to 100 tracks; the rest are added after.
+  await spotifyFetch(
+    `/playlists/${playlistId}/items`,
+    { uris: trackIds.slice(0, 100).map(trackUri) },
+    'PUT'
+  );
+  await addTracks(playlistId, trackIds.slice(100));
+}
+
+function trackUri(id: string) {
+  return `spotify:track:${id}`;
+}
+
+async function addTracks(playlistId: string, trackIds: string[]) {
   // Spotify accepts up to 100 tracks per request.
   for (let i = 0; i < trackIds.length; i += 100) {
-    await spotifyFetch(`/playlists/${playlist.id}/items`, {
-      uris: trackIds.slice(i, i + 100).map((id) => `spotify:track:${id}`),
+    await spotifyFetch(`/playlists/${playlistId}/items`, {
+      uris: trackIds.slice(i, i + 100).map(trackUri),
     });
   }
-  return playlist.external_urls.spotify;
 }

@@ -5,6 +5,7 @@ import { Share, StyleSheet, Switch, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeadlineLabel } from '@/components/deadline-label';
+import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { StatusLabel } from '@/components/status-label';
@@ -155,6 +156,8 @@ export default function GroupScreen() {
           loading={starting}
         />
       )}
+
+      <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
 
       <ThemedText type="smallBold">Rounds</ThemedText>
       {rounds.map((round) => (
