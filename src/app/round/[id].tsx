@@ -30,6 +30,7 @@ import { bannedArtistIn } from '@/lib/banned-artists';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
+import { reportPlayer } from '@/lib/safety';
 import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
 import { songUrl } from '@/lib/song-links';
 import { supabase } from '@/lib/supabase';
@@ -605,7 +606,12 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
               />
               <View style={styles.creditNotes}>
                 {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
-                <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
+                <Comments
+                  comments={comments.filter((c) => c.submission_id === s.id)}
+                  members={members}
+                  userId={userId}
+                  onBlocked={onChanged}
+                />
               </View>
             </Pressable>
           );
@@ -684,15 +690,45 @@ function GuessReveal({
   );
 }
 
-function Comments({ comments, members }: { comments: SongComment[]; members: Profile[] }) {
+function Comments({
+  comments,
+  members,
+  userId,
+  onBlocked,
+}: {
+  comments: SongComment[];
+  members: Profile[];
+  userId: string | undefined;
+  onBlocked: () => void;
+}) {
   if (comments.length === 0) return null;
   return (
     <View style={styles.comments}>
       {/* Comments read like notes scribbled in the margin. */}
       {comments.map((c) => (
-        <ThemedText key={c.voter_id} type="hand" themeColor="textSecondary">
-          {nameOf(members, c.voter_id)}: &ldquo;{c.body}&rdquo;
-        </ThemedText>
+        <View key={c.voter_id} style={styles.commentRow}>
+          <ThemedText type="hand" themeColor="textSecondary" style={styles.grow}>
+            {nameOf(members, c.voter_id)}: &ldquo;{c.body}&rdquo;
+          </ThemedText>
+          {c.voter_id !== userId && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Report ${nameOf(members, c.voter_id)}'s comment`}
+              hitSlop={8}
+              onPress={async () => {
+                const blocked = await reportPlayer(
+                  { id: c.voter_id, name: nameOf(members, c.voter_id) },
+                  c.submission_id
+                );
+                if (blocked) onBlocked();
+              }}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedText type="mono" themeColor="textSecondary">
+                Report
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
       ))}
     </View>
   );
@@ -762,5 +798,10 @@ const styles = StyleSheet.create({
   comments: {
     gap: Spacing.one,
     paddingTop: Spacing.one,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
   },
 });

@@ -1,5 +1,7 @@
+import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
+import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
 import type { Group, Guess, Profile, Ranking, Round, RoundProgress, RoundSong, SongComment, Submission } from '@/lib/types';
 
@@ -19,6 +21,8 @@ export type RoundDetails = {
   members: Profile[];
   /** Your own comments (while voting) or everyone's (once finished). */
   comments: SongComment[];
+  /** Players you blocked. Their names and avatars are already hidden in members. */
+  blockedIds: Set<string>;
 };
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
@@ -31,7 +35,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     round = await fetchRound();
   }
 
-  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments] =
+  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds] =
     await Promise.all([
       supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
@@ -59,6 +63,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         .eq('round_id', roundId)
         .order('created_at')
         .then(check<SongComment[]>),
+      loadBlockedIds(),
     ]);
 
   return {
@@ -70,7 +75,8 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     rankings,
     submissions,
     guesses,
-    members: memberRows.map((m) => m.profiles),
+    members: maskBlocked(memberRows.map((m) => m.profiles), blockedIds),
     comments,
+    blockedIds,
   };
 }

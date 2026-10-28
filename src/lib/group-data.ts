@@ -1,5 +1,7 @@
+import { maskBlocked, withoutBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
+import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
 import type { CategorySuggestion, Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
@@ -12,6 +14,8 @@ export type GroupDetails = {
   rankings: Ranking[];
   guesses: Guess[];
   suggestions: CategorySuggestion[];
+  /** Players you blocked. Their names and avatars are already hidden in members. */
+  blockedIds: Set<string>;
 };
 
 export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
@@ -22,7 +26,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .eq('group_id', groupId)
       .order('round_number')
       .then(check<Round[]>);
-  const [group, memberRows, roundsAsLoaded, suggestions] = await Promise.all([
+  const [group, memberRows, roundsAsLoaded, suggestions, blockedIds] = await Promise.all([
     supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
     supabase
       .from('group_members')
@@ -37,6 +41,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .eq('group_id', groupId)
       .order('created_at')
       .then(check<CategorySuggestion[]>),
+    loadBlockedIds(),
   ]);
 
   // Time is up: move rounds on now rather than waiting for the scheduled job.
@@ -60,12 +65,13 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
 
   return {
     group,
-    members: memberRows.map((m) => m.profiles),
+    members: maskBlocked(memberRows.map((m) => m.profiles), blockedIds),
     rounds,
     submissions,
     rankings,
     guesses,
-    suggestions,
+    suggestions: withoutBlocked(suggestions, blockedIds),
+    blockedIds,
   };
 }
 
