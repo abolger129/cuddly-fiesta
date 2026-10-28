@@ -4,11 +4,13 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
+import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { TextField } from '@/components/text-field';
 import { TimerPicker } from '@/components/timer-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
+import { DEFAULT_RULES } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 const STARTER_CATEGORIES = [
@@ -21,6 +23,7 @@ const STARTER_CATEGORIES = [
 export default function NewGroupScreen() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
+  const [rules, setRules] = useState(DEFAULT_RULES);
   const [submitHours, setSubmitHours] = useState<number | null>(24);
   const [voteHours, setVoteHours] = useState<number | null>(48);
   const [creating, setCreating] = useState(false);
@@ -45,12 +48,13 @@ export default function NewGroupScreen() {
       setCreating(false);
       return;
     }
-    const { error: timerError } = await supabase
+    const { error: settingsError } = await supabase
       .from('groups')
-      .update({ submit_hours: submitHours, vote_hours: voteHours })
+      .update({ ...rules, submit_hours: submitHours, vote_hours: voteHours })
       .eq('id', data);
     setCreating(false);
-    alertOnError('The group was created, but its timers were not saved', timerError);
+    // The group exists either way; the creator can fix its settings on its page.
+    alertOnError('Your group was made, but its scoring rules and timers were not saved', settingsError);
     router.replace(`/group/${data}`);
   }
 
@@ -89,6 +93,9 @@ export default function NewGroupScreen() {
         variant="secondary"
         onPress={() => setCategories((current) => [...current, ''])}
       />
+
+      <ThemedText type="smallBold">Scoring</ThemedText>
+      <ScoringRulesPicker rules={rules} onChange={setRules} />
 
       <ThemedText type="smallBold" style={styles.section}>
         Round timers

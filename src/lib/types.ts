@@ -11,6 +11,10 @@ export type Group = {
   invite_code: string;
   created_by: string;
   total_rounds: number;
+  /** Only each voter's top N songs score. null: every ranked song scores. */
+  points_cap: number | null;
+  /** Each voter's last-place song loses a point. */
+  downvotes: boolean;
   /** Hours to pick a song once a round opens. null means no timer. */
   submit_hours: number | null;
   /** Hours to rank once ranking starts. null means no timer. */
@@ -49,6 +53,14 @@ export type Ranking = {
   voter_id: string;
   submission_id: string;
   position: number;
+};
+
+/** A voter's comment on a song. Only your own are visible until the round is finished. */
+export type SongComment = {
+  round_id: string;
+  submission_id: string;
+  voter_id: string;
+  body: string;
 };
 
 export type RoundProgress = {

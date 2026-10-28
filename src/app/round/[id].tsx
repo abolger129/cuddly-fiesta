@@ -20,10 +20,10 @@ import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
-import { scoreRound } from '@/lib/scoring';
+import { describeRules, pointsForPosition, scoreRound } from '@/lib/scoring';
 import { spotifyTrackUrl, type SpotifyTrack } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
-import type { RoundSong } from '@/lib/types';
+import type { Profile, RoundSong, SongComment } from '@/lib/types';
 
 export default function RoundScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -241,11 +241,25 @@ function Voting({
 }: StageProps & { header: ReactElement }) {
   const { round, progress } = details;
   const [order, setOrder] = useState(() => initialOrder(details));
+  const [comments, setComments] = useState<Record<string, string>>(() =>
+    Object.fromEntries(details.comments.map((c) => [c.submission_id, c.body]))
+  );
   const [busy, setBusy] = useState(false);
   const mySong = details.songs.find((s) => s.is_mine);
 
   async function save() {
     setBusy(true);
+    // Comments go first: saving the last ranking can finish the round, which closes comments.
+    const commented = order.filter((s) => comments[s.id]?.trim());
+    const { error: commentError } = await supabase.rpc('save_song_comments', {
+      rid: round.id,
+      submission_ids: commented.map((s) => s.id),
+      bodies: commented.map((s) => comments[s.id].trim()),
+    });
+    if (alertOnError('Could not save your comments', commentError)) {
+      setBusy(false);
+      return;
+    }
     const { error } = await supabase.rpc('submit_ranking', {
       rid: round.id,
       ordered_ids: order.map((s) => s.id),
@@ -266,6 +280,9 @@ function Voting({
       <RankingList
         songs={order}
         onChange={setOrder}
+        pointsFor={(position) => pointsForPosition(position, order.length, details.group)}
+        comments={comments}
+        onCommentChange={(songId, comment) => setComments((current) => ({ ...current, [songId]: comment }))}
         header={
           <View style={styles.votingHeader}>
             {header}
@@ -274,6 +291,10 @@ function Voting({
               {progress.has_ranked
                 ? `Your ranking is saved. You can still change it until everyone has voted${round.vote_deadline ? ' or time runs out' : ''}.`
                 : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it on Spotify.'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {describeRules(details.group)} Comments are anonymous until the round ends, then
+              everyone sees who said what.
             </ThemedText>
           </View>
         }
@@ -309,8 +330,8 @@ function Voting({
 }
 
 function Results({ details, isCreator, onChanged }: StageProps) {
-  const { submissions, rankings, members } = details;
-  const points = scoreRound(rankings);
+  const { submissions, rankings, members, comments, group } = details;
+  const points = scoreRound(rankings, group);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
 
   return (
@@ -334,9 +355,24 @@ function Results({ details, isCreator, onChanged }: StageProps) {
           <ThemedText type="small" themeColor="textSecondary">
             Picked by {nameOf(members, s.user_id)}
           </ThemedText>
+          <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
         </Card>
       ))}
     </>
+  );
+}
+
+function Comments({ comments, members }: { comments: SongComment[]; members: Profile[] }) {
+  if (comments.length === 0) return null;
+  return (
+    <View style={styles.comments}>
+      {comments.map((c) => (
+        <ThemedText key={c.voter_id} type="small">
+          <ThemedText type="smallBold">{nameOf(members, c.voter_id)}: </ThemedText>
+          {c.body}
+        </ThemedText>
+      ))}
+    </View>
   );
 }
 
@@ -358,5 +394,9 @@ const styles = StyleSheet.create({
   place: {
     width: 20,
     textAlign: 'center',
+  },
+  comments: {
+    gap: Spacing.one,
+    paddingTop: Spacing.one,
   },
 });
