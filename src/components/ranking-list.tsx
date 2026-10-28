@@ -64,6 +64,10 @@ export function RankingList({
       )}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
+      // Keep the comment box you're typing in above the keyboard.
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       style={styles.list}
@@ -128,9 +132,14 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
             accessibilityLabel={`Comment on ${song.track_name}`}
           />
         ) : (
-          <Pressable onPress={() => setCommenting(true)} hitSlop={Spacing.two} style={styles.addComment}>
-            <ThemedText type="mono" themeColor="textSecondary">
-              + Add a comment
+          <Pressable
+            onPress={() => setCommenting(true)}
+            hitSlop={Spacing.two}
+            accessibilityRole="button"
+            accessibilityLabel={`Add a comment on ${song.track_name}`}
+            style={({ pressed }) => [styles.addComment, { borderColor: theme.accent }, pressed && styles.pressed]}>
+            <ThemedText type="smallBold" themeColor="accent">
+              💬 Add a comment
             </ThemedText>
           </Pressable>
         )}
@@ -181,7 +190,14 @@ const styles = StyleSheet.create({
   },
   addComment: {
     alignSelf: 'flex-start',
-    paddingLeft: 24 + Spacing.three,
+    marginLeft: 24 + Spacing.three,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderRadius: 999,
+  },
+  pressed: {
+    opacity: 0.6,
   },
   handle: {
     fontSize: 24,

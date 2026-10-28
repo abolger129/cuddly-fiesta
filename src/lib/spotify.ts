@@ -5,6 +5,7 @@ import {
   TokenResponse,
   useAuthRequest,
 } from 'expo-auth-session';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
 
@@ -28,16 +29,18 @@ export const spotifyRedirectUri = makeRedirectUri({
 
 const TOKEN_KEY = 'spotify-token';
 
+/**
+ * Spotify only sends sign-ins back to musicleague://, which Expo Go can't
+ * open, so connecting (and making playlists) needs an installed build.
+ */
+export const canConnectSpotify = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
+
 export type SpotifyTrack = {
   spotify_track_id: string;
   track_name: string;
   artist_name: string;
   album_art_url: string | null;
 };
-
-export function spotifyTrackUrl(trackId: string) {
-  return `https://open.spotify.com/track/${trackId}`;
-}
 
 // Song search ------------------------------------------------------------------
 
@@ -141,7 +144,14 @@ async function spotifyFetch(path: string, body: unknown, method: 'POST' | 'PUT' 
   });
   if (!response.ok) {
     const details = await response.json().catch(() => null);
-    throw new Error(details?.error?.message ?? `Spotify request failed (${response.status})`);
+    const message: string = details?.error?.message ?? `Spotify request failed (${response.status})`;
+    if (response.status === 403) {
+      // Apps in Spotify's development mode only work for accounts added under User Management.
+      throw new Error(
+        `${message}. If this keeps happening, add your Spotify account under User Management in the Spotify developer dashboard, then disconnect and connect again.`
+      );
+    }
+    throw new Error(message);
   }
   return response.json();
 }
