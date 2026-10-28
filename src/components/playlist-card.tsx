@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Linking } from 'react-native';
+import { Linking, Share } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
 import { alertOnError } from '@/lib/errors';
+import { nameOf } from '@/lib/group-data';
 import type { RoundDetails } from '@/lib/round-data';
-import { createPlaylist, isSpotifyConnected, useConnectSpotify } from '@/lib/spotify';
+import { songListText } from '@/lib/song-links';
+import { canConnectSpotify, createPlaylist, isSpotifyConnected, useConnectSpotify } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
 
 type PlaylistCardProps = {
@@ -16,11 +18,12 @@ type PlaylistCardProps = {
 };
 
 /**
- * The round's Spotify playlist. The group creator makes it on their own
- * Spotify account once ranking opens; everyone else gets the link.
+ * Exporting the round. The group creator makes a Spotify playlist on their own
+ * account once ranking opens and everyone else gets the link. Anyone can share
+ * the song list as text, which works without Spotify.
  */
 export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProps) {
-  const { round, group, songs } = details;
+  const { round, group, songs, members } = details;
   const { connect, connecting } = useConnectSpotify();
   const [connected, setConnected] = useState<boolean | null>(null);
   const [creating, setCreating] = useState(false);
@@ -38,12 +41,23 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
     </ThemedText>
   );
 
+  const title = `${group.name}: Round ${round.round_number}`;
+
+  function shareSongList() {
+    Share.share({ message: songListText(`${title} · ${round.category}`, songs) }).catch(() => {});
+  }
+
+  const shareButton = (
+    <Button title="Share the song list" variant="secondary" onPress={shareSongList} disabled={songs.length === 0} />
+  );
+
   if (round.playlist_url) {
     const url = round.playlist_url;
     return (
       <Card>
-        <ThemedText type="smallBold">Listen to this round</ThemedText>
+        <ThemedText type="smallBold">Round playlist</ThemedText>
         <Button title="Open playlist in Spotify" onPress={() => Linking.openURL(url)} />
+        {shareButton}
         {youtubeNote}
       </Card>
     );
@@ -51,12 +65,16 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
 
   if (!isCreator) {
     return (
-      <>
+      <Card>
+        <ThemedText type="smallBold">Round playlist</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          Tap a song to hear it. A playlist link will show up here once it&apos;s made.
+          {nameOf(members, group.created_by)} hosts this league, so the Spotify playlist goes on their
+          account. The link shows up here once they make it. Until then, tap a song to hear it or
+          share the song list.
         </ThemedText>
+        {shareButton}
         {youtubeNote}
-      </>
+      </Card>
     );
   }
 
@@ -74,7 +92,7 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
     setCreating(true);
     try {
       const url = await createPlaylist(
-        `${group.name}: Round ${round.round_number}`,
+        title,
         `The Gauntlet round ${round.round_number}: ${round.category}`,
         trackIds
       );
@@ -90,7 +108,13 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
   return (
     <Card>
       <ThemedText type="smallBold">Round playlist</ThemedText>
-      {connected ? (
+      {!canConnectSpotify ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Spotify playlists can&apos;t be made in Expo Go because Spotify can&apos;t send you back to
+          it after you sign in. Open The Gauntlet from an installed build to connect Spotify. You can
+          still share the song list.
+        </ThemedText>
+      ) : connected ? (
         <>
           <ThemedText type="small" themeColor="textSecondary">
             Make a playlist of this round&apos;s {trackIds.length} songs on your Spotify account and
@@ -117,6 +141,7 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
           />
         </>
       )}
+      {shareButton}
     </Card>
   );
 }

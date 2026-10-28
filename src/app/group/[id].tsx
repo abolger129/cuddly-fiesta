@@ -224,6 +224,7 @@ export default function GroupScreen() {
         ))}
       </View>
 
+      <SectionLabel>Playlist</SectionLabel>
       <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
 
       <SectionLabel>Players</SectionLabel>

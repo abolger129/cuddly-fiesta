@@ -392,8 +392,9 @@ function Voting({
                 : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it.'}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {describeRules(details.group)} Comments are anonymous until the round ends, then
-              everyone sees who said what.
+              {describeRules(details.group)} Tap Add a comment under any song to say something about
+              it. Only you see your comments until the round ends, then everyone sees who said what.
+              They&apos;re saved with your ranking.
             </ThemedText>
           </View>
         }
