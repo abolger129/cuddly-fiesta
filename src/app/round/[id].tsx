@@ -4,6 +4,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { DeadlineLabel } from '@/components/deadline-label';
 import { GuessPicker } from '@/components/guess-picker';
 import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
@@ -41,7 +42,7 @@ export default function RoundScreen() {
   }
 
   const title = <Stack.Screen options={{ title: `Round ${data.round.round_number}` }} />;
-  const header = <RoundHeader details={data} />;
+  const header = <RoundHeader details={data} onExpired={reload} />;
   const isCreator = data.group.created_by === userId;
 
   // Ranking uses its own scrolling list so rows can be dragged.
@@ -85,7 +86,7 @@ type StageProps = {
   onChanged: () => void;
 };
 
-function RoundHeader({ details }: { details: RoundDetails }) {
+function RoundHeader({ details, onExpired }: { details: RoundDetails; onExpired: () => void }) {
   const { round, group } = details;
   return (
     <View style={styles.header}>
@@ -94,6 +95,7 @@ function RoundHeader({ details }: { details: RoundDetails }) {
       </ThemedText>
       <ThemedText type="subtitle">{round.category}</ThemedText>
       <StatusLabel status={round.status} />
+      <DeadlineLabel round={round} onExpired={onExpired} />
     </View>
   );
 }
@@ -201,7 +203,7 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
 
       <ThemedText themeColor="textSecondary">
         {progress.submitted_count} of {progress.member_count} players have picked a song. Ranking
-        starts once everyone is in.
+        starts once everyone is in{round.submit_deadline ? ' or time runs out' : ''}.
       </ThemedText>
 
       {isCreator && progress.submitted_count >= 2 && progress.submitted_count < progress.member_count && (
@@ -314,7 +316,7 @@ function Voting({
             <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
             <ThemedText themeColor="textSecondary">
               {progress.has_ranked
-                ? 'Your ranking is saved. You can still change it until everyone has voted.'
+                ? `Your ranking is saved. You can still change it until everyone has voted${round.vote_deadline ? ' or time runs out' : ''}.`
                 : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it on Spotify.'}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">

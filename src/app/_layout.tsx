@@ -1,10 +1,13 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { registerForPushNotifications } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,6 +26,12 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { session, isLoading } = useAuth();
+  const userId = session?.user.id;
+
+  useEffect(() => {
+    if (userId) registerForPushNotifications().catch(() => {});
+  }, [userId]);
+
 
   // Keep the splash screen up until we know whether someone is signed in.
   if (isLoading) return null;
@@ -42,9 +51,23 @@ function RootNavigator() {
           <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
+      {Platform.OS !== 'web' && !!session && <OpenTappedNotification />}
       <AnimatedSplashOverlay />
     </>
   );
+}
+
+/** Tapping a notification opens the round it is about. */
+function OpenTappedNotification() {
+  const response = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    const url = response?.notification.request.content.data?.url;
+    if (typeof url === 'string' && response?.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+      router.push(url as never);
+      Notifications.clearLastNotificationResponseAsync();
+    }
+  }, [response]);
+  return null;
 }
 
 const styles = StyleSheet.create({

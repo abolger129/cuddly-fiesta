@@ -8,6 +8,7 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
+import { unregisterPushNotifications } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import type { Group } from '@/lib/types';
 
@@ -56,7 +57,10 @@ export default function GroupsScreen() {
 
       <View style={styles.footer}>
         <Button title="Settings" variant="secondary" onPress={() => router.push('/profile')} />
-        <Button title="Sign out" variant="secondary" onPress={() => supabase.auth.signOut()} />
+        <Button title="Sign out" variant="secondary" onPress={async () => {
+            await unregisterPushNotifications();
+            await supabase.auth.signOut();
+          }} />
       </View>
     </Screen>
   );

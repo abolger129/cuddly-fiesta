@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { TextField } from '@/components/text-field';
+import { TimerPicker } from '@/components/timer-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
@@ -24,6 +25,8 @@ export default function NewGroupScreen() {
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
   const [guessing, setGuessing] = useState(false);
   const [rules, setRules] = useState(DEFAULT_RULES);
+  const [submitHours, setSubmitHours] = useState<number | null>(24);
+  const [voteHours, setVoteHours] = useState<number | null>(48);
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
@@ -46,17 +49,13 @@ export default function NewGroupScreen() {
       setCreating(false);
       return;
     }
-    const rulesChanged =
-      rules.points_cap !== DEFAULT_RULES.points_cap || rules.downvotes !== DEFAULT_RULES.downvotes;
-    if (rulesChanged || guessing) {
-      const { error: rulesError } = await supabase
-        .from('groups')
-        .update({ ...rules, guessing_enabled: guessing })
-        .eq('id', data);
-      // The group exists either way; the creator can fix the settings on its page.
-      alertOnError('Your group was made, but its scoring rules were not saved', rulesError);
-    }
+    const { error: settingsError } = await supabase
+      .from('groups')
+      .update({ ...rules, guessing_enabled: guessing, submit_hours: submitHours, vote_hours: voteHours })
+      .eq('id', data);
     setCreating(false);
+    // The group exists either way; the creator can fix its settings on its page.
+    alertOnError('Your group was made, but its settings were not saved', settingsError);
     router.replace(`/group/${data}`);
   }
 
@@ -108,6 +107,16 @@ export default function NewGroupScreen() {
         <Switch value={guessing} onValueChange={setGuessing} accessibilityLabel="Guess who picked it" />
       </View>
 
+      <ThemedText type="smallBold" style={styles.section}>
+        Round timers
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        When time runs out, the round moves on without anyone who hasn&apos;t played. You can change
+        these later.
+      </ThemedText>
+      <TimerPicker label="Time to pick a song" value={submitHours} onChange={setSubmitHours} />
+      <TimerPicker label="Time to rank the songs" value={voteHours} onChange={setVoteHours} />
+
       <Button
         title={`Create group with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
         onPress={create}
@@ -134,6 +143,9 @@ const styles = StyleSheet.create({
   },
   remove: {
     paddingHorizontal: Spacing.three,
+  },
+  section: {
+    marginTop: Spacing.three,
   },
   setting: {
     marginTop: Spacing.three,

@@ -1,4 +1,5 @@
 import { check } from '@/lib/db';
+import { isPastDeadline } from '@/lib/deadlines';
 import { supabase } from '@/lib/supabase';
 import type { Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
@@ -13,7 +14,14 @@ export type GroupDetails = {
 };
 
 export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
-  const [group, memberRows, rounds] = await Promise.all([
+  const fetchRounds = () =>
+    supabase
+      .from('rounds')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('round_number')
+      .then(check<Round[]>);
+  const [group, memberRows, roundsAsLoaded] = await Promise.all([
     supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
     supabase
       .from('group_members')
@@ -21,13 +29,16 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .eq('group_id', groupId)
       .order('joined_at')
       .then(check<{ profiles: Profile }[]>),
-    supabase
-      .from('rounds')
-      .select('*')
-      .eq('group_id', groupId)
-      .order('round_number')
-      .then(check<Round[]>),
+    fetchRounds(),
   ]);
+
+  // Time is up: move rounds on now rather than waiting for the scheduled job.
+  let rounds = roundsAsLoaded;
+  const now = new Date();
+  if (rounds.some((r) => isPastDeadline(r, now))) {
+    await supabase.rpc('close_expired_rounds', { gid: groupId }).then(check);
+    rounds = await fetchRounds();
+  }
 
   const finishedRoundIds = rounds.filter((r) => r.status === 'finished').map((r) => r.id);
   const [submissions, rankings, guesses] = finishedRoundIds.length

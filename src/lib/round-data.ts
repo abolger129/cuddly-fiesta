@@ -1,4 +1,5 @@
 import { check } from '@/lib/db';
+import { isPastDeadline } from '@/lib/deadlines';
 import { supabase } from '@/lib/supabase';
 import type { Group, Guess, Profile, Ranking, Round, RoundProgress, RoundSong, SongComment, Submission } from '@/lib/types';
 
@@ -21,7 +22,14 @@ export type RoundDetails = {
 };
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
-  const round = await supabase.from('rounds').select('*').eq('id', roundId).single().then(check<Round>);
+  const fetchRound = () =>
+    supabase.from('rounds').select('*').eq('id', roundId).single().then(check<Round>);
+  let round = await fetchRound();
+  // Time is up: move the round on now rather than waiting for the scheduled job.
+  if (isPastDeadline(round, new Date())) {
+    await supabase.rpc('close_expired_rounds', { gid: round.group_id }).then(check);
+    round = await fetchRound();
+  }
 
   const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments] =
     await Promise.all([

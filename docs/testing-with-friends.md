@@ -63,6 +63,7 @@ For a new version, run the same build command; testers get the update in TestFli
 
 - **Spotify:** only 5 Spotify users can connect to your developer app, and only group creators connect. Add each friend who will create a group in the [Spotify dashboard](https://developer.spotify.com/dashboard) > your app > **User Management**. Everyone else can join groups and search songs without being added.
 - **Supabase:** run any new file in `supabase/migrations` you haven't run yet, and make sure the Spotify search function is deployed (see the README).
+- **Push notifications:** iPhone needs nothing extra: `eas build` offers to set up the push key with your Apple developer account, say yes. Android needs a free Firebase project: follow [Expo's FCM guide](https://docs.expo.dev/push-notifications/fcm-credentials/) to add `google-services.json` to the app and upload the key to EAS. Notifications don't work in Expo Go or the simulator.
 - **Email:** sign-in codes go out through your custom SMTP (Gmail allows a few hundred emails a day, which is fine for friends).
 
 ## Test these on a real phone first
@@ -72,3 +73,4 @@ The simulator can't cover everything, so try these yourself on the first build b
 - Sign in with an emailed code.
 - Connect Spotify as a group creator, and check a playlist is made when a round's songs are all in.
 - Drag songs into order on the ranking screen with your finger.
+- Allow notifications, have a friend start a round, and check the notification arrives and opens the round when tapped. Set a short timer (12 hours) to check the "time is almost up" reminder.

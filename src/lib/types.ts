@@ -15,6 +15,10 @@ export type Group = {
   points_cap: number | null;
   /** Each voter's last-place song loses a point. */
   downvotes: boolean;
+  /** Hours to pick a song once a round opens. null means no timer. */
+  submit_hours: number | null;
+  /** Hours to rank once ranking starts. null means no timer. */
+  vote_hours: number | null;
   /** Players can guess who picked each song for bonus points. */
   guessing_enabled: boolean;
   created_at: string;
@@ -28,6 +32,8 @@ export type Round = {
   category: string;
   status: RoundStatus;
   playlist_url: string | null;
+  submit_deadline: string | null;
+  vote_deadline: string | null;
 };
 
 export type Submission = {
