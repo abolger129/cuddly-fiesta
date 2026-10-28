@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -17,11 +17,16 @@ import { supabase } from '@/lib/supabase';
 // Supabase lets the code length be set from 6 to 10 digits (8 by default).
 const MIN_CODE_LENGTH = 6;
 const MAX_CODE_LENGTH = 10;
+// A password sign-in sits behind a small link. It is there for the App Review demo account,
+// which reviewers can't use with an emailed code. Accounts only get a password if one is set
+// for them in the Supabase dashboard.
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -62,6 +67,14 @@ export default function SignInScreen() {
     });
     setLoading(false);
     if (error) Alert.alert('That code did not work', error.message);
+    // On success the auth listener switches to the signed-in screens.
+  }
+
+  async function passwordSignIn() {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setLoading(false);
+    if (error) Alert.alert('Could not sign in', error.message);
     // On success the auth listener switches to the signed-in screens.
   }
 
@@ -142,13 +155,44 @@ export default function SignInScreen() {
                   autoComplete="email"
                   textContentType="emailAddress"
                 />
-                <Button
-                  title="Email me a code"
-                  variant="onBrand"
-                  onPress={sendCode}
-                  loading={loading}
-                  disabled={!email.includes('@')}
-                />
+                {usePassword ? (
+                  <>
+                    <TextField
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Password"
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                      textContentType="password"
+                    />
+                    <Button
+                      title="Sign in"
+                      variant="onBrand"
+                      onPress={passwordSignIn}
+                      loading={loading}
+                      disabled={!email.includes('@') || password.length === 0}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    title="Email me a code"
+                    variant="onBrand"
+                    onPress={sendCode}
+                    loading={loading}
+                    disabled={!email.includes('@')}
+                  />
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setUsePassword(!usePassword);
+                    setPassword('');
+                  }}>
+                  <ThemedText type="small" style={[styles.onBrand, styles.or, styles.link]}>
+                    {usePassword ? 'Email me a code instead' : 'Sign in with a password'}
+                  </ThemedText>
+                </Pressable>
               </>
             )}
           </ScrollView>
@@ -197,5 +241,9 @@ const styles = StyleSheet.create({
   },
   or: {
     textAlign: 'center',
+  },
+  link: {
+    opacity: 0.8,
+    textDecorationLine: 'underline',
   },
 });
