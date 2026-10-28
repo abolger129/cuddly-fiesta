@@ -25,6 +25,8 @@ export type Group = {
   guessing_enabled: boolean;
   created_at: string;
   playlist_url: string | null;
+  /** Artists nobody can pick in any round of this league. */
+  banned_artists: string[];
 };
 
 export type Round = {
@@ -37,6 +39,8 @@ export type Round = {
   submit_deadline: string | null;
   vote_deadline: string | null;
   last_nudged_at: string | null;
+  /** Artists nobody can pick in this round, on top of the league's. */
+  banned_artists: string[];
 };
 
 export type Submission = {
