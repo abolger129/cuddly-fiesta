@@ -76,6 +76,13 @@ Press `i` to open the iPhone simulator, `a` for an Android emulator, or scan the
 
 Scoring lives in [`src/lib/scoring.ts`](src/lib/scoring.ts) so it's easy to change. Right now a voter ranking n songs gives n points to their favourite, down to 1 point for their last pick.
 
+Each group can change the scoring when it's created (or on the group page, until the first round starts):
+
+- **Points cap:** only each voter's top 3 or top 5 songs score (3 or 5 points down to 1); the rest get 0.
+- **Downvotes:** each voter's last-place song loses a point, and the songs above it score as if it weren't there.
+
+While ranking, players can also leave a comment on any song. Comments stay hidden from everyone else until the round ends, then show on the results with the commenter's name.
+
 ## Project layout
 
 ```
