@@ -11,6 +11,10 @@ export type Group = {
   invite_code: string;
   created_by: string;
   total_rounds: number;
+  /** Hours to pick a song once a round opens. null means no timer. */
+  submit_hours: number | null;
+  /** Hours to rank once ranking starts. null means no timer. */
+  vote_hours: number | null;
   created_at: string;
 };
 
@@ -21,6 +25,8 @@ export type Round = {
   category: string;
   status: RoundStatus;
   playlist_url: string | null;
+  submit_deadline: string | null;
+  vote_deadline: string | null;
 };
 
 export type Submission = {

@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { TextField } from '@/components/text-field';
+import { TimerPicker } from '@/components/timer-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
@@ -20,6 +21,8 @@ const STARTER_CATEGORIES = [
 export default function NewGroupScreen() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
+  const [submitHours, setSubmitHours] = useState<number | null>(24);
+  const [voteHours, setVoteHours] = useState<number | null>(48);
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
@@ -38,8 +41,16 @@ export default function NewGroupScreen() {
       group_name: name.trim(),
       categories: filledCategories,
     });
+    if (alertOnError('Could not create the group', error)) {
+      setCreating(false);
+      return;
+    }
+    const { error: timerError } = await supabase
+      .from('groups')
+      .update({ submit_hours: submitHours, vote_hours: voteHours })
+      .eq('id', data);
     setCreating(false);
-    if (alertOnError('Could not create the group', error)) return;
+    alertOnError('The group was created, but its timers were not saved', timerError);
     router.replace(`/group/${data}`);
   }
 
@@ -79,6 +90,16 @@ export default function NewGroupScreen() {
         onPress={() => setCategories((current) => [...current, ''])}
       />
 
+      <ThemedText type="smallBold" style={styles.section}>
+        Round timers
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        When time runs out, the round moves on without anyone who hasn&apos;t played. You can change
+        these later.
+      </ThemedText>
+      <TimerPicker label="Time to pick a song" value={submitHours} onChange={setSubmitHours} />
+      <TimerPicker label="Time to rank the songs" value={voteHours} onChange={setVoteHours} />
+
       <Button
         title={`Create group with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
         onPress={create}
@@ -105,6 +126,9 @@ const styles = StyleSheet.create({
   },
   remove: {
     paddingHorizontal: Spacing.three,
+  },
+  section: {
+    marginTop: Spacing.three,
   },
   create: {
     marginTop: Spacing.three,

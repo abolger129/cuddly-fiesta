@@ -4,16 +4,20 @@ import { Share, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { DeadlineLabel } from '@/components/deadline-label';
 import { Screen } from '@/components/screen';
 import { StatusLabel } from '@/components/status-label';
 import { ThemedText } from '@/components/themed-text';
+import { TimerPicker } from '@/components/timer-picker';
 import { Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
 import { useAuth } from '@/lib/auth';
+import { describeHours } from '@/lib/deadlines';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
 import { leaderboard } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
+import type { Group } from '@/lib/types';
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,6 +91,8 @@ export default function GroupScreen() {
         )}
       </Card>
 
+      <RoundTimers group={group} isCreator={isCreator} onChanged={reload} />
+
       {isCreator && nextRound && !roundInProgress && (
         <Button
           title={`Start round ${nextRound.round_number}: ${nextRound.category}`}
@@ -103,6 +109,7 @@ export default function GroupScreen() {
           </ThemedText>
           <ThemedText type="smallBold">{round.category}</ThemedText>
           <StatusLabel status={round.status} />
+          <DeadlineLabel round={round} onExpired={reload} compact />
         </Card>
       ))}
 
@@ -111,6 +118,70 @@ export default function GroupScreen() {
         {members.map((m) => m.display_name || 'Someone').join(', ')}
       </ThemedText>
     </Screen>
+  );
+}
+
+function RoundTimers({
+  group,
+  isCreator,
+  onChanged,
+}: {
+  group: Group;
+  isCreator: boolean;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [submitHours, setSubmitHours] = useState(group.submit_hours);
+  const [voteHours, setVoteHours] = useState(group.vote_hours);
+  const [saving, setSaving] = useState(false);
+
+  function edit() {
+    setSubmitHours(group.submit_hours);
+    setVoteHours(group.vote_hours);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    const { error } = await supabase
+      .from('groups')
+      .update({ submit_hours: submitHours, vote_hours: voteHours })
+      .eq('id', group.id);
+    setSaving(false);
+    if (alertOnError('Could not save the timers', error)) return;
+    setEditing(false);
+    onChanged();
+  }
+
+  const summary =
+    group.submit_hours == null && group.vote_hours == null
+      ? 'No timers. Each round waits for everyone.'
+      : `${group.submit_hours == null ? 'No limit' : describeHours(group.submit_hours)} to pick a song, ${
+          group.vote_hours == null ? 'no limit' : describeHours(group.vote_hours)
+        } to rank.`;
+
+  return (
+    <Card>
+      <ThemedText type="small" themeColor="textSecondary">
+        Round timers
+      </ThemedText>
+      {editing ? (
+        <>
+          <TimerPicker label="Time to pick a song" value={submitHours} onChange={setSubmitHours} />
+          <TimerPicker label="Time to rank the songs" value={voteHours} onChange={setVoteHours} />
+          <ThemedText type="small" themeColor="textSecondary">
+            Changes apply from the next time a round opens or ranking starts.
+          </ThemedText>
+          <Button title="Save timers" onPress={save} loading={saving} />
+          <Button title="Cancel" variant="secondary" onPress={() => setEditing(false)} />
+        </>
+      ) : (
+        <>
+          <ThemedText type="small">{summary}</ThemedText>
+          {isCreator && <Button title="Change timers" variant="secondary" onPress={edit} />}
+        </>
+      )}
+    </Card>
   );
 }
 
