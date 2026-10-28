@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { BannedArtistsEditor, BannedArtistsNote } from '@/components/banned-artists';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { SuggestCategory, UpcomingRoundsEditor } from '@/components/category-cards';
@@ -74,6 +75,13 @@ export default function GroupScreen() {
     const { error } = await supabase.from('groups').update({ points_cap, downvotes }).eq('id', group.id);
     setSavingRules(false);
     if (!alertOnError('Could not change the scoring rules', error)) reload();
+  }
+
+  async function saveBans(banned_artists: string[]) {
+    const { error } = await supabase.from('groups').update({ banned_artists }).eq('id', group.id);
+    if (alertOnError('Could not save the banned artists', error)) return false;
+    reload();
+    return true;
   }
 
   async function startRound(roundId: string) {
@@ -305,6 +313,13 @@ export default function GroupScreen() {
 
           <RoundTimers group={group} onChanged={reload} />
 
+          <BannedArtistsEditor
+            title="Banned artists"
+            hint="Nobody can pick a song by these artists in any round. To ban an artist for one round, open that round."
+            bans={group.banned_artists}
+            onSave={saveBans}
+          />
+
           <Button title="Delete league" variant="secondary" onPress={deleteLeague} loading={deleting} />
         </>
       ) : (
@@ -318,6 +333,7 @@ export default function GroupScreen() {
                 Guess who picked each song while ranking. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
               </ThemedText>
             )}
+            <BannedArtistsNote leagueBans={group.banned_artists} />
           </Card>
           {!leagueOver && session && (
             <SuggestCategory details={data} userId={session.user.id} onChanged={reload} />

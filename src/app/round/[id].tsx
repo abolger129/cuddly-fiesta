@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AlbumArt } from '@/components/album-art';
+import { BannedArtistsEditor, BannedArtistsNote } from '@/components/banned-artists';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeadlineLabel } from '@/components/deadline-label';
@@ -25,6 +26,7 @@ import { Fonts, roundColor, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
+import { bannedArtistIn } from '@/lib/banned-artists';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
@@ -122,16 +124,48 @@ function Upcoming({ details, isCreator, onChanged }: StageProps) {
 
   if (!isCreator) {
     return (
-      <ThemedText themeColor="textSecondary">
-        {nameOf(details.members, details.group.created_by)} will open this round when it is time.
-      </ThemedText>
+      <>
+        <ThemedText themeColor="textSecondary">
+          {nameOf(details.members, details.group.created_by)} will open this round when it is time.
+        </ThemedText>
+        <BannedArtistsNote leagueBans={details.group.banned_artists} roundBans={details.round.banned_artists} />
+      </>
     );
   }
-  return <Button title="Start this round" onPress={start} loading={starting} />;
+  return (
+    <>
+      <Button title="Start this round" onPress={start} loading={starting} />
+      <RoundBans details={details} onChanged={onChanged} />
+    </>
+  );
+}
+
+/** The host bans artists for just this round, before or while songs are picked. */
+function RoundBans({ details, onChanged }: { details: RoundDetails; onChanged: () => void }) {
+  const { round, group } = details;
+
+  async function save(banned_artists: string[]) {
+    const { error } = await supabase.from('rounds').update({ banned_artists }).eq('id', round.id);
+    if (alertOnError('Could not save the banned artists', error)) return false;
+    onChanged();
+    return true;
+  }
+
+  return (
+    <BannedArtistsEditor
+      title="Banned this round"
+      hint={`Nobody can pick a song by these artists this round${
+        round.status === 'submitting' ? '. Songs already picked stay in' : ''
+      }.${group.banned_artists.length ? ` Banned in the whole league: ${group.banned_artists.join(', ')}.` : ''}`}
+      bans={round.banned_artists}
+      onSave={save}
+    />
+  );
 }
 
 function Submitting({ details, isCreator, onChanged }: StageProps) {
-  const { round, progress, mySubmission } = details;
+  const { round, group, progress, mySubmission } = details;
+  const bans = [...round.banned_artists, ...group.banned_artists];
   const [notOnSpotify, setNotOnSpotify] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -176,15 +210,21 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
       ) : (
         <Card>
           <ThemedText type="smallBold">Pick a song that fits</ThemedText>
+          <BannedArtistsNote leagueBans={group.banned_artists} roundBans={round.banned_artists} />
           {notOnSpotify ? (
             <NotOnSpotifyForm
               onSubmit={submit}
               busy={busy}
+              bans={bans}
               onCancel={() => setNotOnSpotify(false)}
             />
           ) : (
             <>
-              <SongSearch onPick={(track) => submit({ ...track, youtube_url: null })} disabled={busy} />
+              <SongSearch
+                onPick={(track) => submit({ ...track, youtube_url: null })}
+                disabled={busy}
+                bans={bans}
+              />
               <Button
                 title="Not on Spotify? Add a YouTube link"
                 variant="secondary"
@@ -199,6 +239,8 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         {progress.submitted_count} of {progress.member_count} players have picked a song. Ranking
         starts once everyone is in{round.submit_deadline ? ' or time runs out' : ''}.
       </ThemedText>
+
+      {isCreator && <RoundBans details={details} onChanged={onChanged} />}
 
       {progress.member_count - progress.submitted_count - (progress.has_submitted ? 0 : 1) > 0 && (
         <NudgeButton round={round} onChanged={onChanged} />
@@ -225,10 +267,12 @@ type NewSong = Omit<Submission, 'id' | 'round_id' | 'user_id'>;
 function NotOnSpotifyForm({
   onSubmit,
   busy,
+  bans,
   onCancel,
 }: {
   onSubmit: (song: NewSong) => void;
   busy: boolean;
+  bans: string[];
   onCancel: () => void;
 }) {
   const [link, setLink] = useState('');
@@ -236,6 +280,7 @@ function NotOnSpotifyForm({
   const [artistName, setArtistName] = useState('');
   const videoId = youtubeVideoId(link);
   const badLink = link.trim() !== '' && !videoId;
+  const banned = bannedArtistIn(artistName, bans);
 
   useEffect(() => {
     if (!videoId) return;
@@ -267,6 +312,11 @@ function NotOnSpotifyForm({
       )}
       <TextField value={trackName} onChangeText={setTrackName} placeholder="Song title" />
       <TextField value={artistName} onChangeText={setArtistName} placeholder="Artist" />
+      {banned && (
+        <ThemedText type="small" themeColor="danger">
+          {banned} is banned. Pick a song by someone else.
+        </ThemedText>
+      )}
       <ThemedText type="small" themeColor="textSecondary">
         Songs that aren&apos;t on Spotify can&apos;t go on the playlist. Everyone gets a button to play
         it on YouTube instead, and nobody sees who picked it until the round ends.
@@ -283,7 +333,7 @@ function NotOnSpotifyForm({
           })
         }
         loading={busy}
-        disabled={badLink || !trackName.trim() || !artistName.trim()}
+        disabled={badLink || !!banned || !trackName.trim() || !artistName.trim()}
       />
       <Button title="Search Spotify instead" variant="secondary" onPress={onCancel} />
     </>
