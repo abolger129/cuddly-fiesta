@@ -34,6 +34,7 @@ export type Round = {
   playlist_url: string | null;
   submit_deadline: string | null;
   vote_deadline: string | null;
+  last_nudged_at: string | null;
 };
 
 export type Submission = {
