@@ -8,12 +8,16 @@ import type { Group, Guess, Ranking, Submission } from './types';
  * points from that voter, so their favourite gets the most and their last
  * pick gets 1.
  *
- * A league can change this in two ways:
- * - Points cap: only the voter's top N songs score (N points down to 1). The
- *   rest get 0.
+ * The host can change this in three ways:
+ * - Max points: the voter's favourite gets N points, the next N - 1, and so
+ *   on down to 1. With fewer than N songs ranked, the favourite gets as many
+ *   points as there are songs, as with the default rules.
+ * - Below the max: songs ranked lower than the ones that score either get 0
+ *   (the default), or keep counting down into the negatives (0, -1, -2...).
  * - Downvotes: the voter's last-place song loses a point instead of gaining
  *   one, and the songs above it score as if it weren't there. Needs at least
- *   two songs to rank.
+ *   two songs to rank. Ignored when songs below the max go negative, since the
+ *   bottom songs already lose points then.
  *
  * In groups with guessing turned on, each correct guess at who picked a song
  * earns the guesser GUESS_BONUS_POINTS.
@@ -21,15 +25,22 @@ import type { Group, Guess, Ranking, Submission } from './types';
 export const GUESS_BONUS_POINTS = 2;
 
 /** A league's ranking rules. */
-export type ScoringRules = Pick<Group, 'points_cap' | 'downvotes'>;
+export type ScoringRules = Pick<Group, 'points_cap' | 'downvotes' | 'negative_points'>;
 
-export const DEFAULT_RULES: ScoringRules = { points_cap: null, downvotes: false };
+export const DEFAULT_RULES: ScoringRules = { points_cap: null, downvotes: false, negative_points: false };
+
+/** Highest max points a host can pick. Matches the check in the database. */
+export const MAX_POINTS_LIMIT = 20;
 
 export function pointsForPosition(
   position: number,
   songsRanked: number,
   rules: ScoringRules = DEFAULT_RULES
 ): number {
+  if (rules.negative_points) {
+    const top = Math.min(rules.points_cap ?? songsRanked, songsRanked);
+    return top - position + 1;
+  }
   const downvote = rules.downvotes && songsRanked >= 2;
   if (downvote && position === songsRanked) return -1;
   const scoringSlots = downvote ? songsRanked - 1 : songsRanked;
@@ -39,9 +50,14 @@ export function pointsForPosition(
 
 /** A short description of the rules, for showing to players. */
 export function describeRules(rules: ScoringRules): string {
-  const points = rules.points_cap
-    ? `Only your top ${rules.points_cap} ${rules.points_cap === 1 ? 'song scores' : 'songs score'} (${rules.points_cap === 1 ? '1 point' : `${rules.points_cap} points down to 1`}).`
-    : 'Every song you rank scores: your favourite gets the most points, your last pick gets 1.';
+  const cap = rules.points_cap;
+  if (!cap) {
+    const points = 'Every song you rank scores: your favourite gets the most points, your last pick gets 1.';
+    return rules.downvotes ? `${points} Your last-place song loses a point.` : points;
+  }
+  const top = `Your favourite gets ${cap} ${cap === 1 ? 'point' : 'points'}${cap > 1 ? ', then it counts down by 1' : ''}.`;
+  if (rules.negative_points) return `${top} Songs ranked lower keep counting down: 0, then -1, -2 and so on.`;
+  const points = `${top} Songs ranked below your top ${cap === 1 ? 'pick' : cap} get 0.`;
   return rules.downvotes ? `${points} Your last-place song loses a point.` : points;
 }
 

@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DEFAULT_RULES, GUESS_BONUS_POINTS, leaderboard, pointsForPosition, scoreGuesses, scoreRound } from '../scoring.ts';
+import {
+  DEFAULT_RULES,
+  GUESS_BONUS_POINTS,
+  leaderboard,
+  pointsForPosition,
+  scoreGuesses,
+  scoreRound,
+  type ScoringRules,
+} from '../scoring.ts';
 import type { Guess, Ranking } from '../types.ts';
 
 const rank = (round_id: string, voter_id: string, order: string[]): Ranking[] =>
@@ -37,8 +45,8 @@ test('leaderboard adds up points across rounds and includes members with no poin
   ]);
 });
 
-const pointsForEach = (n: number, rules: { points_cap: number | null; downvotes: boolean }) =>
-  Array.from({ length: n }, (_, i) => pointsForPosition(i + 1, n, rules));
+const pointsForEach = (n: number, rules: Partial<ScoringRules>) =>
+  Array.from({ length: n }, (_, i) => pointsForPosition(i + 1, n, { ...DEFAULT_RULES, ...rules }));
 
 test('a points cap only scores the top songs', () => {
   assert.deepEqual(pointsForEach(5, { points_cap: 3, downvotes: false }), [3, 2, 1, 0, 0]);
@@ -53,8 +61,20 @@ test('downvotes take a point from the last-place song', () => {
   assert.deepEqual(pointsForEach(1, { points_cap: null, downvotes: true }), [1]);
 });
 
+test('songs below the max points can go negative', () => {
+  assert.deepEqual(pointsForEach(6, { points_cap: 3, negative_points: true }), [3, 2, 1, 0, -1, -2]);
+  // A max bigger than the number of songs leaves nothing to go negative.
+  assert.deepEqual(pointsForEach(3, { points_cap: 5, negative_points: true }), [3, 2, 1]);
+  // Downvotes are ignored: the bottom songs already lose points.
+  assert.deepEqual(pointsForEach(5, { points_cap: 2, negative_points: true, downvotes: true }), [2, 1, 0, -1, -2]);
+});
+
 test('scoreRound applies the league rules', () => {
-  const points = scoreRound(rank('r1', 'bob', ['songA', 'songB', 'songC']), { points_cap: 1, downvotes: true });
+  const points = scoreRound(rank('r1', 'bob', ['songA', 'songB', 'songC']), {
+    ...DEFAULT_RULES,
+    points_cap: 1,
+    downvotes: true,
+  });
   assert.equal(points.get('songA'), 1);
   assert.equal(points.get('songB'), 0);
   assert.equal(points.get('songC'), -1);
