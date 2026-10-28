@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
+import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { StatusLabel } from '@/components/status-label';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -13,7 +14,7 @@ import { useLoader } from '@/hooks/use-loader';
 import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
-import { leaderboard } from '@/lib/scoring';
+import { describeRules, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 export default function GroupScreen() {
@@ -22,6 +23,7 @@ export default function GroupScreen() {
   const load = useCallback(() => loadGroupDetails(id), [id]);
   const { data, error, loading, reload } = useLoader(load);
   const [starting, setStarting] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
 
   if (!data) {
     return (
@@ -33,10 +35,18 @@ export default function GroupScreen() {
 
   const { group, members, rounds, submissions, rankings } = data;
   const isCreator = group.created_by === session?.user.id;
-  const standings = leaderboard(submissions, rankings, members.map((m) => m.id));
+  const standings = leaderboard(submissions, rankings, members.map((m) => m.id), group);
   const finishedCount = rounds.filter((r) => r.status === 'finished').length;
   const nextRound = rounds.find((r) => r.status === 'upcoming');
   const roundInProgress = rounds.some((r) => r.status === 'submitting' || r.status === 'voting');
+  const rulesLocked = rounds.some((r) => r.status !== 'upcoming');
+
+  async function saveRules({ points_cap, downvotes }: ScoringRules) {
+    setSavingRules(true);
+    const { error } = await supabase.from('groups').update({ points_cap, downvotes }).eq('id', group.id);
+    setSavingRules(false);
+    if (!alertOnError('Could not change the scoring rules', error)) reload();
+  }
 
   async function startRound(roundId: string) {
     setStarting(true);
@@ -85,6 +95,20 @@ export default function GroupScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Points show up here after the first round.
           </ThemedText>
+        )}
+      </Card>
+
+      <ThemedText type="smallBold">Scoring</ThemedText>
+      <Card>
+        {isCreator && !rulesLocked ? (
+          <>
+            <ScoringRulesPicker rules={group} onChange={saveRules} disabled={savingRules} />
+            <ThemedText type="small" themeColor="textSecondary">
+              You can change this until the first round starts.
+            </ThemedText>
+          </>
+        ) : (
+          <ThemedText type="small">{describeRules(group)}</ThemedText>
         )}
       </Card>
 
