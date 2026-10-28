@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { isLeagueOver, leagueAwards, placesFrom, playerStats, type LeagueRecord } from '../history.ts';
+import { isLeagueOver, leagueAwards, placeChanges, placesFrom, playerStats, type LeagueRecord } from '../history.ts';
 import { DEFAULT_RULES } from '../scoring.ts';
 import type { Ranking, Submission } from '../types.ts';
 
@@ -95,4 +95,41 @@ test('unfinished leagues count songs but not places', () => {
   assert.equal(anna?.leaguesFinished, 0);
   assert.equal(anna?.averagePlace, null);
   assert.equal(anna?.songsPicked, 1);
+});
+
+test('place changes show who moved up and down in the latest round', () => {
+  // Round 1: anna's song wins. Round 2: dan's song wins by a mile.
+  const twoRounds: LeagueRecord = {
+    group: { id: 'g2', name: 'Two rounds', ...DEFAULT_RULES },
+    members,
+    rounds: [
+      { id: 'r1', status: 'finished' },
+      { id: 'r2', status: 'finished' },
+    ],
+    submissions: [
+      song('a1', 'r1', 'anna'),
+      song('b1', 'r1', 'bob'),
+      song('c1', 'r1', 'cat'),
+      song('d1', 'r1', 'dan'),
+      song('a2', 'r2', 'anna'),
+      song('b2', 'r2', 'bob'),
+      song('c2', 'r2', 'cat'),
+      song('d2', 'r2', 'dan'),
+    ],
+    rankings: [
+      ...rank('r1', 'anna', ['b1', 'c1', 'd1']),
+      ...rank('r1', 'bob', ['a1', 'c1', 'd1']),
+      ...rank('r1', 'cat', ['a1', 'b1', 'd1']),
+      ...rank('r1', 'dan', ['a1', 'b1', 'c1']),
+      ...rank('r2', 'anna', ['d2', 'b2', 'c2']),
+      ...rank('r2', 'bob', ['d2', 'a2', 'c2']),
+      ...rank('r2', 'cat', ['d2', 'a2', 'b2']),
+      ...rank('r2', 'dan', ['a2', 'b2', 'c2']),
+    ],
+    guesses: [],
+  };
+  const changes = placeChanges(twoRounds, 'r2');
+  assert.equal(changes.get('anna'), 0);
+  assert.ok((changes.get('dan') ?? 0) > 0, 'dan moved up');
+  assert.ok((changes.get('cat') ?? 0) < 0, 'cat moved down');
 });

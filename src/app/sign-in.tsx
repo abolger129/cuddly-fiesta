@@ -1,14 +1,14 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { Linework, ScribbleUnderline } from '@/components/doodles';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, SleeveColors, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Brand, MaxContentWidth, OnBrand, Spacing } from '@/constants/theme';
 import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
 
@@ -25,7 +25,6 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
-  const colorScheme = useColorScheme();
 
   useEffect(() => {
     isAppleSignInAvailable().then(setAppleAvailable);
@@ -66,96 +65,96 @@ export default function SignInScreen() {
     // On success the auth listener switches to the signed-in screens.
   }
 
+  // Sign-in sits on the app icon's cobalt, with Anna's drawing, so it follows on from the splash screen.
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.form}>
-          <View style={styles.sleeves} accessible={false}>
-            {SleeveColors.slice(0, 3).map((color, i) => (
-              <View
-                key={color}
-                style={[styles.sleeve, { backgroundColor: color, transform: [{ rotate: `${(i - 1) * 6}deg` }] }]}
-              />
-            ))}
-          </View>
-          <ThemedText type="title">The Gauntlet</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Pick songs with your friends, rank them, and find out who has the best taste.
-          </ThemedText>
-
-          {codeSent ? (
-            <>
-              <ThemedText type="small">We sent a sign-in code to {email.trim()}.</ThemedText>
-              <TextField
-                value={code}
-                onChangeText={setCode}
-                placeholder="Code from the email"
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                textContentType="oneTimeCode"
-                maxLength={MAX_CODE_LENGTH}
-              />
-              <Button
-                title="Sign in"
-                onPress={verifyCode}
-                loading={loading}
-                disabled={code.trim().length < MIN_CODE_LENGTH}
-              />
-              <Button
-                title="Use a different email"
-                variant="secondary"
-                onPress={() => {
-                  setCodeSent(false);
-                  setCode('');
-                }}
-              />
-            </>
-          ) : (
-            <>
-              {appleAvailable && (
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  buttonStyle={
-                    colorScheme === 'dark'
-                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                  }
-                  cornerRadius={APPLE_BUTTON_RADIUS}
-                  style={styles.appleButton}
-                  onPress={() => !socialLoading && socialSignIn('Apple')}
-                />
-              )}
-              <Button
-                title="Continue with Google"
-                variant="secondary"
-                onPress={() => socialSignIn('Google')}
-                loading={socialLoading}
-              />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.or}>
-                or use your email
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill}>
+          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <Linework size={280} style={styles.linework} />
+            <View>
+              <ThemedText type="title" style={styles.onBrand}>
+                The Gauntlet
               </ThemedText>
-              <TextField
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
-              />
-              <Button
-                title="Email me a code"
-                onPress={sendCode}
-                loading={loading}
-                disabled={!email.includes('@')}
-              />
-            </>
-          )}
+              <ScribbleUnderline width={220} color={OnBrand} />
+            </View>
+            <ThemedText style={styles.tagline}>
+              Pick songs with your friends, rank them, and find out who has the best taste.
+            </ThemedText>
+
+            {codeSent ? (
+              <>
+                <ThemedText type="small" style={styles.onBrand}>
+                  We sent a sign-in code to {email.trim()}.
+                </ThemedText>
+                <TextField
+                  value={code}
+                  onChangeText={setCode}
+                  placeholder="Code from the email"
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  maxLength={MAX_CODE_LENGTH}
+                />
+                <Button
+                  title="Sign in"
+                  variant="onBrand"
+                  onPress={verifyCode}
+                  loading={loading}
+                  disabled={code.trim().length < MIN_CODE_LENGTH}
+                />
+                <Button
+                  title="Use a different email"
+                  variant="onBrandOutline"
+                  onPress={() => {
+                    setCodeSent(false);
+                    setCode('');
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                {appleAvailable && (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={APPLE_BUTTON_RADIUS}
+                    style={styles.appleButton}
+                    onPress={() => !socialLoading && socialSignIn('Apple')}
+                  />
+                )}
+                <Button
+                  title="Continue with Google"
+                  variant="onBrandOutline"
+                  onPress={() => socialSignIn('Google')}
+                  loading={socialLoading}
+                />
+                <ThemedText type="small" style={[styles.onBrand, styles.or]}>
+                  or use your email
+                </ThemedText>
+                <TextField
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                />
+                <Button
+                  title="Email me a code"
+                  variant="onBrand"
+                  onPress={sendCode}
+                  loading={loading}
+                  disabled={!email.includes('@')}
+                />
+              </>
+            )}
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -167,25 +166,31 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
+    backgroundColor: Brand,
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    justifyContent: 'center',
+  },
+  fill: {
+    flex: 1,
   },
   form: {
+    flexGrow: 1,
+    justifyContent: 'center',
     gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.four,
   },
-  sleeves: {
-    flexDirection: 'row',
-    marginBottom: Spacing.two,
+  linework: {
+    alignSelf: 'center',
   },
-  sleeve: {
-    width: 64,
-    height: 64,
-    borderRadius: Spacing.one,
-    marginRight: -Spacing.four,
+  onBrand: {
+    color: OnBrand,
+  },
+  tagline: {
+    color: OnBrand,
+    opacity: 0.9,
   },
   appleButton: {
     height: 48,

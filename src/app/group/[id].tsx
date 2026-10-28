@@ -1,16 +1,20 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, Share, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { SuggestCategory, UpcomingRoundsEditor } from '@/components/category-cards';
 import { DeadlineLabel } from '@/components/deadline-label';
+import { Figure, ScribbleCircle } from '@/components/doodles';
+import { InviteCard } from '@/components/invite-card';
 import { LeagueAwards } from '@/components/league-awards';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { SectionLabel } from '@/components/section-label';
+import { ShareCard } from '@/components/share-card';
 import { Sleeve, Stamp } from '@/components/sleeve';
 import { statusText } from '@/components/status-label';
 import { ThemedText } from '@/components/themed-text';
@@ -22,8 +26,8 @@ import { useAuth } from '@/lib/auth';
 import { describeHours } from '@/lib/deadlines';
 import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
-import { loadGroupDetails, nameOf } from '@/lib/group-data';
-import { isLeagueOver } from '@/lib/history';
+import { loadGroupDetails, nameOf, type GroupDetails } from '@/lib/group-data';
+import { isLeagueOver, placeChanges, songScores } from '@/lib/history';
 import { describeRules, GUESS_BONUS_POINTS, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 import type { Group, Profile, Round } from '@/lib/types';
@@ -56,6 +60,14 @@ export default function GroupScreen() {
   const roundInProgress = rounds.some((r) => r.status === 'submitting' || r.status === 'voting');
   const rulesLocked = rounds.some((r) => r.status !== 'upcoming');
   const leagueOver = isLeagueOver(rounds);
+  const latestFinished = rounds.filter((r) => r.status === 'finished').at(-1);
+  const changes = finishedCount >= 2 && latestFinished ? placeChanges(data, latestFinished.id) : null;
+  const lastPlace = standings.at(-1);
+  const hotSeat =
+    finishedCount > 0 && standings.length > 2 && lastPlace && lastPlace.points < standings[0].points
+      ? lastPlace.userId
+      : null;
+  const profileOf = (userId: string) => members.find((m) => m.id === userId) ?? { id: userId, display_name: '' };
 
   async function saveRules({ points_cap, downvotes }: ScoringRules) {
     setSavingRules(true);
@@ -134,12 +146,6 @@ export default function GroupScreen() {
     if (!alertOnError('Could not delete the league', error)) router.replace('/');
   }
 
-  function shareInvite() {
-    Share.share({
-      message: `Join my group "${group.name}" on The Gauntlet with invite code ${group.invite_code}`,
-    });
-  }
-
   return (
     <Screen refreshing={loading} onRefresh={reload}>
       <Stack.Screen options={{ title: '' }} />
@@ -148,9 +154,10 @@ export default function GroupScreen() {
         color={colorForId(group.id)}
         kicker={`League · ${members.length} ${members.length === 1 ? 'player' : 'players'}`}
         stamp={<Stamp text={`Code ${group.invite_code}`} />}
-        title={group.name}
-      />
-      <Button title="Share invite" variant="secondary" onPress={shareInvite} />
+        title={group.name}>
+        <RoundProgress rounds={rounds} />
+      </Sleeve>
+      {!leagueOver && <InviteCard group={group} />}
 
       {isCreator && nextRound && !roundInProgress && (
         <Button
@@ -162,17 +169,34 @@ export default function GroupScreen() {
 
       <SectionLabel>{finishedCount === rounds.length ? 'Final standings' : 'Standings'}</SectionLabel>
       <View>
-        {standings.map((s, i) => (
-          <View key={s.userId} style={[styles.standing, { borderBottomColor: theme.rule }]}>
-            <ThemedText type="mono" themeColor="textSecondary" style={styles.place}>
-              {String(i + 1).padStart(2, '0')}
-            </ThemedText>
-            <ThemedText type={i === 0 && finishedCount > 0 ? 'smallBold' : 'small'} style={styles.grow}>
-              {nameOf(members, s.userId)}
-            </ThemedText>
-            <ThemedText type="mono">{s.points} pts</ThemedText>
-          </View>
-        ))}
+        {standings.map((s, i) => {
+          const leading = finishedCount > 0 && s.points === standings[0].points && s.points > 0;
+          const moved = changes?.get(s.userId) ?? 0;
+          return (
+            <View key={s.userId} style={[styles.standing, { borderBottomColor: theme.rule }]}>
+              <ThemedText type="mono" themeColor="textSecondary" style={styles.place}>
+                {String(i + 1).padStart(2, '0')}
+              </ThemedText>
+              <Avatar profile={profileOf(s.userId)} size={28} />
+              <ThemedText type={leading ? 'smallBold' : 'small'} style={styles.grow} numberOfLines={1}>
+                {nameOf(members, s.userId)}
+              </ThemedText>
+              {s.userId === hotSeat && <Figure height={26} label="In last place" />}
+              {changes && (
+                <ThemedText
+                  type="mono"
+                  style={[styles.change, { color: moved > 0 ? theme.accent : moved < 0 ? theme.danger : theme.textSecondary }]}
+                  accessibilityLabel={moved > 0 ? `Up ${moved}` : moved < 0 ? `Down ${-moved}` : 'No change'}>
+                  {moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : '–'}
+                </ThemedText>
+              )}
+              <View style={styles.points}>
+                {leading && <ScribbleCircle width={72} height={34} style={styles.circle} />}
+                <ThemedText type={leading ? 'smallBold' : 'mono'}>{s.points} pts</ThemedText>
+              </View>
+            </View>
+          );
+        })}
         {finishedCount === 0 && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
             Points show up here after the first round.
@@ -184,6 +208,12 @@ export default function GroupScreen() {
         <>
           <SectionLabel>Awards</SectionLabel>
           <LeagueAwards league={data} />
+          <FinalPoster details={data} standings={standings} />
+          <Button
+            title="Rematch with the same crew"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/group/new', params: { rematch: group.id } })}
+          />
         </>
       )}
 
@@ -200,6 +230,7 @@ export default function GroupScreen() {
       <View>
         {members.map((m) => (
           <View key={m.id} style={[styles.standing, { borderBottomColor: theme.rule }]}>
+            <Avatar profile={m} size={28} />
             <ThemedText type="small" style={styles.grow}>
               {m.display_name || 'Someone'}
               {m.id === group.created_by ? ' (host)' : ''}
@@ -326,6 +357,59 @@ function RoundRecord({ round, onExpired }: { round: Round; onExpired: () => void
   );
 }
 
+/** One bar per round on the league's sleeve: solid when played, half-filled when in progress. */
+function RoundProgress({ rounds }: { rounds: Round[] }) {
+  const finished = rounds.filter((r) => r.status === 'finished').length;
+  const open = rounds.find((r) => r.status === 'submitting' || r.status === 'voting');
+  return (
+    <View
+      style={styles.progress}
+      accessible
+      accessibilityLabel={`${finished} of ${rounds.length} rounds played`}>
+      {rounds.map((r) => (
+        <View
+          key={r.id}
+          style={[
+            styles.progressBar,
+            {
+              backgroundColor: OnSleeve,
+              opacity: r.status === 'finished' ? 1 : r.id === open?.id ? 0.6 : 0.25,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** The final results as a poster to share. */
+function FinalPoster({ details, standings }: { details: GroupDetails; standings: ReturnType<typeof leaderboard> }) {
+  const { group, members } = details;
+  const top = standings[0];
+  const winners = standings.filter((s) => s.points === top?.points).map((s) => nameOf(members, s.userId));
+  const scores = songScores(details);
+  const lines = standings.slice(0, 3).map((s, i) => {
+    const best = scores.find((x) => x.submission.user_id === s.userId);
+    return {
+      number: String(i + 1).padStart(2, '0'),
+      title: nameOf(members, s.userId),
+      detail: best ? `Best pick: ${best.submission.track_name}` : 'No songs scored',
+      points: `${s.points}`,
+    };
+  });
+  if (!top) return null;
+  return (
+    <ShareCard
+      kicker={`${group.name} · Final`}
+      title={`${winners.join(' & ')} survived the Gauntlet`}
+      lines={lines}
+      fallbackMessage={`${group.name}, final standings:\n${standings
+        .map((s, i) => `${i + 1}. ${nameOf(members, s.userId)} ${s.points} pts`)
+        .join('\n')}`}
+    />
+  );
+}
+
 function describeTimers(group: Group): string {
   if (group.submit_hours == null && group.vote_hours == null) return 'No timers. Each round waits for everyone.';
   return `${group.submit_hours == null ? 'No limit' : describeHours(group.submit_hours)} to pick a song, ${
@@ -397,6 +481,28 @@ const styles = StyleSheet.create({
   },
   place: {
     width: 24,
+  },
+  change: {
+    width: 28,
+    textAlign: 'right',
+  },
+  points: {
+    minWidth: 72,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circle: {
+    position: 'absolute',
+  },
+  progress: {
+    flexDirection: 'row',
+    gap: Spacing.one,
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
   },
   grow: {
     flex: 1,

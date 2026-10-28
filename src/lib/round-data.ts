@@ -49,7 +49,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         : Promise.resolve([]),
       supabase
         .from('group_members')
-        .select('profiles (id, display_name)')
+        .select('profiles (id, display_name, avatar_doodle)')
         .eq('group_id', round.group_id)
         .then(check<{ profiles: Profile }[]>),
       supabase.from('guesses').select('*').eq('round_id', roundId).then(check<Guess[]>),

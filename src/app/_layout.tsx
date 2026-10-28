@@ -4,6 +4,7 @@ import {
   BricolageGrotesque_700Bold,
   BricolageGrotesque_800ExtraBold,
 } from '@expo-google-fonts/bricolage-grotesque';
+import { Caveat_600SemiBold } from '@expo-google-fonts/caveat';
 import { IBMPlexMono_400Regular, IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
@@ -14,7 +15,7 @@ import { Platform, StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { Colors, Fonts } from '@/constants/theme';
+import { Brand, Colors, Fonts } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/notifications';
 
@@ -25,7 +26,7 @@ const navigationThemes = {
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
-      primary: Colors.light.text,
+      primary: Brand,
       background: Colors.light.background,
       card: Colors.light.background,
       text: Colors.light.text,
@@ -36,7 +37,7 @@ const navigationThemes = {
     ...DarkTheme,
     colors: {
       ...DarkTheme.colors,
-      primary: Colors.dark.text,
+      primary: Brand,
       background: Colors.dark.background,
       card: Colors.dark.background,
       text: Colors.dark.text,
@@ -54,6 +55,7 @@ export default function RootLayout() {
     BricolageGrotesque_800ExtraBold,
     IBMPlexMono_400Regular,
     IBMPlexMono_600SemiBold,
+    Caveat_600SemiBold,
   });
 
   // Keep the splash screen up until the fonts are ready. If they fail, fall back to system fonts.
@@ -94,8 +96,8 @@ function RootNavigator() {
           <Stack.Screen name="index" options={{ title: 'The Gauntlet' }} />
           <Stack.Screen name="stats" options={{ title: 'Stats' }} />
           <Stack.Screen name="profile" options={{ title: 'Settings', presentation: 'modal' }} />
-          <Stack.Screen name="group/new" options={{ title: 'New group', presentation: 'modal' }} />
-          <Stack.Screen name="group/join" options={{ title: 'Join a group', presentation: 'modal' }} />
+          <Stack.Screen name="group/new" options={{ title: 'New league', presentation: 'modal' }} />
+          <Stack.Screen name="group/join" options={{ title: 'Join a league', presentation: 'modal' }} />
           <Stack.Screen name="group/[id]" options={{ title: '' }} />
           <Stack.Screen name="round/[id]" options={{ title: '' }} />
         </Stack.Protected>

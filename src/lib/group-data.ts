@@ -26,7 +26,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
     supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
     supabase
       .from('group_members')
-      .select('profiles (id, display_name)')
+      .select('profiles (id, display_name, avatar_doodle)')
       .eq('group_id', groupId)
       .order('joined_at')
       .then(check<{ profiles: Profile }[]>),

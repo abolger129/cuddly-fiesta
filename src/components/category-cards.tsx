@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { CategoryRoulette } from '@/components/category-roulette';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -80,6 +81,15 @@ export function UpcomingRoundsEditor({ details, onChanged }: Props) {
           </View>
         ))}
         <Button title="Add a round" variant="secondary" onPress={() => setCategories((c) => [...c, ''])} />
+        <CategoryRoulette
+          taken={[...rounds.map((r) => r.category), ...categories]}
+          onPick={(category) =>
+            setCategories((current) => {
+              const empty = current.findIndex((c) => !c.trim());
+              return empty === -1 ? [...current, category] : current.map((c, i) => (i === empty ? category : c));
+            })
+          }
+        />
         <Button
           title="Save rounds"
           loading={saving}

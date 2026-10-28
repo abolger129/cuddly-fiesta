@@ -38,6 +38,24 @@ export function placesFrom(standings: Standing[]): Map<string, number> {
   );
 }
 
+/**
+ * How many places each player moved in the given round, the latest finished one:
+ * 2 means up two places, -1 down one. Players on the same score share a place.
+ */
+export function placeChanges(league: LeagueRecord, latestRoundId: string): Map<string, number> {
+  const before = standingsFor({
+    ...league,
+    submissions: league.submissions.filter((s) => s.round_id !== latestRoundId),
+    rankings: league.rankings.filter((r) => r.round_id !== latestRoundId),
+    guesses: league.guesses.filter((g) => g.round_id !== latestRoundId),
+  });
+  const placesBefore = placesFrom(before);
+  const placesNow = placesFrom(standingsFor(league));
+  return new Map(
+    [...placesNow].map(([userId, place]) => [userId, (placesBefore.get(userId) ?? place) - place])
+  );
+}
+
 export type SongScore = { submission: Submission; points: number };
 
 /** Every song's points in its round, best first. */
