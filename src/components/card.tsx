@@ -29,7 +29,7 @@ export function Card({ children, onPress, style }: CardProps) {
 const styles = StyleSheet.create({
   card: {
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Spacing.two,
     gap: Spacing.one,
   },
   pressed: {

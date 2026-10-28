@@ -3,10 +3,11 @@ import { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
+import { SectionLabel } from '@/components/section-label';
+import { Sleeve } from '@/components/sleeve';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { colorForId, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
 import { unregisterPushNotifications } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
@@ -35,13 +36,15 @@ export default function GroupsScreen() {
         />
       </View>
 
+      {!!groups?.length && <SectionLabel>Your leagues</SectionLabel>}
       {groups?.map((group) => (
-        <Card key={group.id} onPress={() => router.push(`/group/${group.id}`)}>
-          <ThemedText type="smallBold">{group.name}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {group.total_rounds} {group.total_rounds === 1 ? 'round' : 'rounds'}
-          </ThemedText>
-        </Card>
+        <Sleeve
+          key={group.id}
+          color={colorForId(group.id)}
+          kicker={`${group.total_rounds} ${group.total_rounds === 1 ? 'round' : 'rounds'}`}
+          title={group.name}
+          onPress={() => router.push(`/group/${group.id}`)}
+        />
       ))}
 
       {!loading && (error || groups?.length === 0) && (

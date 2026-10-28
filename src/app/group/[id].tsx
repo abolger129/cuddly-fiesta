@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Share, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -8,22 +8,26 @@ import { DeadlineLabel } from '@/components/deadline-label';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
-import { StatusLabel } from '@/components/status-label';
+import { SectionLabel } from '@/components/section-label';
+import { Sleeve, Stamp } from '@/components/sleeve';
+import { statusText } from '@/components/status-label';
 import { ThemedText } from '@/components/themed-text';
 import { TimerPicker } from '@/components/timer-picker';
-import { Spacing } from '@/constants/theme';
+import { colorForId, OnSleeve, roundColor, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { describeHours } from '@/lib/deadlines';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
 import { describeRules, GUESS_BONUS_POINTS, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
-import type { Group } from '@/lib/types';
+import type { Group, Round } from '@/lib/types';
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const theme = useTheme();
   const load = useCallback(() => loadGroupDetails(id), [id]);
   const { data, error, loading, reload } = useLoader(load);
   const [starting, setStarting] = useState(false);
@@ -76,21 +80,57 @@ export default function GroupScreen() {
 
   return (
     <Screen refreshing={loading} onRefresh={reload}>
-      <Stack.Screen options={{ title: group.name }} />
+      <Stack.Screen options={{ title: '' }} />
 
-      <Card>
-        <ThemedText type="small" themeColor="textSecondary">
-          Invite code
-        </ThemedText>
-        <ThemedText type="subtitle" selectable>
-          {group.invite_code}
-        </ThemedText>
-        <Button title="Share invite" variant="secondary" onPress={shareInvite} />
-      </Card>
+      <Sleeve
+        color={colorForId(group.id)}
+        kicker={`League · ${members.length} ${members.length === 1 ? 'player' : 'players'}`}
+        stamp={<Stamp text={`Code ${group.invite_code}`} />}
+        title={group.name}
+      />
+      <Button title="Share invite" variant="secondary" onPress={shareInvite} />
 
+      {isCreator && nextRound && !roundInProgress && (
+        <Button
+          title={`Start round ${nextRound.round_number}: ${nextRound.category}`}
+          onPress={() => startRound(nextRound.id)}
+          loading={starting}
+        />
+      )}
+
+      <SectionLabel>{finishedCount === rounds.length ? 'Final standings' : 'Standings'}</SectionLabel>
+      <View>
+        {standings.map((s, i) => (
+          <View key={s.userId} style={[styles.standing, { borderBottomColor: theme.rule }]}>
+            <ThemedText type="mono" themeColor="textSecondary" style={styles.place}>
+              {String(i + 1).padStart(2, '0')}
+            </ThemedText>
+            <ThemedText type={i === 0 && finishedCount > 0 ? 'smallBold' : 'small'} style={styles.grow}>
+              {nameOf(members, s.userId)}
+            </ThemedText>
+            <ThemedText type="mono">{s.points} pts</ThemedText>
+          </View>
+        ))}
+        {finishedCount === 0 && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
+            Points show up here after the first round.
+          </ThemedText>
+        )}
+      </View>
+
+      <SectionLabel>The shelf</SectionLabel>
+      <View style={styles.shelf}>
+        {rounds.map((round) => (
+          <RoundRecord key={round.id} round={round} onExpired={reload} />
+        ))}
+      </View>
+
+      <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
+
+      <SectionLabel>House rules</SectionLabel>
       {(isCreator || group.guessing_enabled) && (
         <Card>
-          <View style={styles.standing}>
+          <View style={styles.row}>
             <ThemedText type="smallBold" style={styles.grow}>
               Guess who picked it
             </ThemedText>
@@ -111,30 +151,10 @@ export default function GroupScreen() {
         </Card>
       )}
 
-      <ThemedText type="smallBold">
-        {finishedCount === rounds.length ? 'Final standings' : 'Leaderboard'}
-      </ThemedText>
       <Card>
-        {standings.map((s, i) => (
-          <View key={s.userId} style={styles.standing}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.place}>
-              {i + 1}
-            </ThemedText>
-            <ThemedText type="small" style={styles.grow}>
-              {nameOf(members, s.userId)}
-            </ThemedText>
-            <ThemedText type="smallBold">{s.points} pts</ThemedText>
-          </View>
-        ))}
-        {finishedCount === 0 && (
-          <ThemedText type="small" themeColor="textSecondary">
-            Points show up here after the first round.
-          </ThemedText>
-        )}
-      </Card>
-
-      <ThemedText type="smallBold">Scoring</ThemedText>
-      <Card>
+        <ThemedText type="label" themeColor="textSecondary">
+          Scoring
+        </ThemedText>
         {isCreator && !rulesLocked ? (
           <>
             <ScoringRulesPicker rules={group} onChange={saveRules} disabled={savingRules} />
@@ -149,33 +169,39 @@ export default function GroupScreen() {
 
       <RoundTimers group={group} isCreator={isCreator} onChanged={reload} />
 
-      {isCreator && nextRound && !roundInProgress && (
-        <Button
-          title={`Start round ${nextRound.round_number}: ${nextRound.category}`}
-          onPress={() => startRound(nextRound.id)}
-          loading={starting}
-        />
-      )}
-
-      <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
-
-      <ThemedText type="smallBold">Rounds</ThemedText>
-      {rounds.map((round) => (
-        <Card key={round.id} onPress={() => router.push(`/round/${round.id}`)}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Round {round.round_number}
-          </ThemedText>
-          <ThemedText type="smallBold">{round.category}</ThemedText>
-          <StatusLabel status={round.status} />
-          <DeadlineLabel round={round} onExpired={reload} compact />
-        </Card>
-      ))}
-
-      <ThemedText type="small" themeColor="textSecondary">
-        {members.length} {members.length === 1 ? 'player' : 'players'}:{' '}
-        {members.map((m) => m.display_name || 'Someone').join(', ')}
+      <ThemedText type="mono" themeColor="textSecondary">
+        Players: {members.map((m) => m.display_name || 'Someone').join(', ')}
       </ThemedText>
     </Screen>
+  );
+}
+
+/** One round as a square record cover on the league's shelf, in the round's own color. */
+function RoundRecord({ round, onExpired }: { round: Round; onExpired: () => void }) {
+  const theme = useTheme();
+  const notStarted = round.status === 'upcoming';
+  const textColor = notStarted ? theme.textSecondary : OnSleeve;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Round ${round.round_number}: ${round.category}, ${statusText(round.status)}`}
+      onPress={() => router.push(`/round/${round.id}`)}
+      style={({ pressed }) => [
+        styles.record,
+        { backgroundColor: notStarted ? theme.backgroundSelected : roundColor(round.round_number) },
+        pressed && styles.pressed,
+      ]}>
+      <ThemedText type="label" style={[styles.recordKicker, { color: textColor }]} numberOfLines={2}>
+        Vol. {round.round_number}
+        {round.status === 'finished' || notStarted ? '' : ` · ${statusText(round.status)}`}
+      </ThemedText>
+      <View style={styles.recordBottom}>
+        <ThemedText type="smallBold" style={[styles.recordTitle, { color: textColor }]} numberOfLines={3}>
+          {round.category}
+        </ThemedText>
+        <DeadlineLabel round={round} onExpired={onExpired} compact style={[styles.recordKicker, { color: textColor }]} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -220,7 +246,7 @@ function RoundTimers({
 
   return (
     <Card>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="label" themeColor="textSecondary">
         Round timers
       </ThemedText>
       {editing ? (
@@ -244,15 +270,52 @@ function RoundTimers({
 }
 
 const styles = StyleSheet.create({
-  standing: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
+  standing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   place: {
-    width: 20,
+    width: 24,
   },
   grow: {
     flex: 1,
+  },
+  note: {
+    paddingTop: Spacing.two,
+  },
+  shelf: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  record: {
+    width: '31.5%',
+    aspectRatio: 1,
+    borderRadius: Spacing.one,
+    padding: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  recordBottom: {
+    gap: Spacing.half,
+  },
+  recordKicker: {
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 0.8,
+  },
+  recordTitle: {
+    fontSize: 13,
+    lineHeight: 15,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

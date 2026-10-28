@@ -40,7 +40,7 @@ export function Button({ title, variant = 'primary', loading, disabled, style, .
 const styles = StyleSheet.create({
   button: {
     minHeight: 48,
-    borderRadius: Spacing.three,
+    borderRadius: 6,
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     justifyContent: 'center',

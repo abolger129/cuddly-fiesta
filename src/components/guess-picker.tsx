@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.four,
+    borderRadius: 6,
   },
   pressed: {
     opacity: 0.7,

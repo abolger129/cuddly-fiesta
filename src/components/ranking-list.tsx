@@ -7,13 +7,14 @@ import ReorderableList, {
   type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list';
 
-import { SongRow } from '@/components/song-row';
+import { SongRow, TrackNumber } from '@/components/song-row';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { spotifyTrackUrl } from '@/lib/spotify';
+import { trackLabel } from '@/lib/track-labels';
 import type { RoundSong } from '@/lib/types';
 
 export const MAX_COMMENT_LENGTH = 280;
@@ -54,6 +55,7 @@ export function RankingList({
         <RankingRow
           song={item}
           position={index + 1}
+          total={songs.length}
           points={pointsFor(index + 1)}
           comment={comments[item.id] ?? ''}
           onCommentChange={(comment) => onCommentChange(item.id, comment)}
@@ -71,12 +73,13 @@ export function RankingList({
 type RankingRowProps = {
   song: RoundSong;
   position: number;
+  total: number;
   points: number;
   comment: string;
   onCommentChange: (comment: string) => void;
 };
 
-function RankingRow({ song, position, points, comment, onCommentChange }: RankingRowProps) {
+function RankingRow({ song, position, total, points, comment, onCommentChange }: RankingRowProps) {
   const drag = useReorderableDrag();
   const isActive = useIsActive();
   const theme = useTheme();
@@ -88,21 +91,18 @@ function RankingRow({ song, position, points, comment, onCommentChange }: Rankin
       onPress={trackId ? () => Linking.openURL(spotifyTrackUrl(trackId)) : undefined}
       onLongPress={drag}
       delayLongPress={150}
-      style={styles.cell}
       accessibilityHint="Press and hold, then drag to change its rank">
-      <ThemedView type={isActive ? 'backgroundSelected' : 'backgroundElement'} style={styles.row}>
+      <ThemedView
+        type={isActive ? 'backgroundElement' : 'background'}
+        style={[styles.row, { borderBottomColor: isActive ? 'transparent' : theme.rule }, isActive && styles.lifted]}>
         <SongRow
           trackName={song.track_name}
           artistName={song.artist_name}
           albumArtUrl={song.album_art_url}
-          leading={
-            <ThemedText type="smallBold" style={styles.position}>
-              {position}
-            </ThemedText>
-          }
+          leading={<TrackNumber label={trackLabel(position - 1, total)} />}
           trailing={
             <View style={styles.trailing}>
-              <ThemedText type="small" themeColor={points < 0 ? 'danger' : 'textSecondary'}>
+              <ThemedText type="mono" themeColor={points < 0 ? 'danger' : 'textSecondary'}>
                 {formatPoints(points)}
               </ThemedText>
               <Pressable onPressIn={drag} hitSlop={Spacing.three} accessibilityLabel="Drag to reorder">
@@ -122,12 +122,12 @@ function RankingRow({ song, position, points, comment, onCommentChange }: Rankin
             multiline
             autoFocus={comment === ''}
             onBlur={() => setCommenting(comment.trim() !== '')}
-            style={[styles.comment, { backgroundColor: theme.background }]}
+            style={[styles.comment, { backgroundColor: theme.backgroundElement }]}
             accessibilityLabel={`Comment on ${song.track_name}`}
           />
         ) : (
           <Pressable onPress={() => setCommenting(true)} hitSlop={Spacing.two} style={styles.addComment}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="mono" themeColor="textSecondary">
               + Add a comment
             </ThemedText>
           </Pressable>
@@ -152,14 +152,21 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  // Spacing between rows is padding inside each cell so drag positions line up.
-  cell: {
-    paddingBottom: Spacing.two,
-  },
+  // Rows sit flush like a tracklist, split by hairline rules, so drag positions line up.
   row: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: Spacing.one,
     gap: Spacing.two,
+  },
+  lifted: {
+    transform: [{ scale: 1.02 }],
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   trailing: {
     flexDirection: 'row',
@@ -172,10 +179,7 @@ const styles = StyleSheet.create({
   },
   addComment: {
     alignSelf: 'flex-start',
-  },
-  position: {
-    width: 20,
-    textAlign: 'center',
+    paddingLeft: 24 + Spacing.three,
   },
   handle: {
     fontSize: 24,
