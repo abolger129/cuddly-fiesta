@@ -15,6 +15,8 @@ export type Group = {
   points_cap: number | null;
   /** Each voter's last-place song loses a point. */
   downvotes: boolean;
+  /** Players can guess who picked each song for bonus points. */
+  guessing_enabled: boolean;
   created_at: string;
 };
 
@@ -47,6 +49,14 @@ export type Ranking = {
   voter_id: string;
   submission_id: string;
   position: number;
+};
+
+/** A guess at who picked a song. */
+export type Guess = {
+  round_id: string;
+  guesser_id: string;
+  submission_id: string;
+  guessed_user_id: string;
 };
 
 /** A voter's comment on a song. Only your own are visible until the round is finished. */

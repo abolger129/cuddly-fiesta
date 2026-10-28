@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { leaderboard, pointsForPosition, scoreRound } from '../scoring.ts';
-import type { Ranking } from '../types.ts';
+import { DEFAULT_RULES, GUESS_BONUS_POINTS, leaderboard, pointsForPosition, scoreGuesses, scoreRound } from '../scoring.ts';
+import type { Guess, Ranking } from '../types.ts';
 
 const rank = (round_id: string, voter_id: string, order: string[]): Ranking[] =>
   order.map((submission_id, i) => ({ round_id, voter_id, submission_id, position: i + 1 }));
@@ -58,4 +58,38 @@ test('scoreRound applies the league rules', () => {
   assert.equal(points.get('songA'), 1);
   assert.equal(points.get('songB'), 0);
   assert.equal(points.get('songC'), -1);
+});
+
+const guess = (guesser_id: string, submission_id: string, guessed_user_id: string): Guess => ({
+  round_id: 'r1',
+  guesser_id,
+  submission_id,
+  guessed_user_id,
+});
+
+test('only correct guesses earn bonus points', () => {
+  const submissions = [
+    { id: 'a1', user_id: 'anna' },
+    { id: 'b1', user_id: 'bob' },
+    { id: 'c1', user_id: 'cat' },
+  ];
+  const points = scoreGuesses(
+    [guess('anna', 'b1', 'bob'), guess('anna', 'c1', 'bob'), guess('bob', 'a1', 'cat')],
+    submissions
+  );
+  assert.equal(points.get('anna'), GUESS_BONUS_POINTS);
+  assert.equal(points.get('bob'), undefined);
+});
+
+test('leaderboard adds guess bonuses to ranking points', () => {
+  const submissions = [
+    { id: 'a1', user_id: 'anna' },
+    { id: 'b1', user_id: 'bob' },
+  ];
+  const rankings = [...rank('r1', 'anna', ['b1']), ...rank('r1', 'bob', ['a1'])];
+
+  assert.deepEqual(leaderboard(submissions, rankings, ['anna', 'bob'], DEFAULT_RULES, [guess('bob', 'a1', 'anna')]), [
+    { userId: 'bob', points: 1 + GUESS_BONUS_POINTS },
+    { userId: 'anna', points: 1 },
+  ]);
 });
