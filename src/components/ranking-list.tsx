@@ -11,9 +11,10 @@ import { SongRow, TrackNumber } from '@/components/song-row';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { YoutubeTag } from '@/components/youtube-tag';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { spotifyTrackUrl } from '@/lib/spotify';
+import { songUrl } from '@/lib/song-links';
 import { trackLabel } from '@/lib/track-labels';
 import type { RoundSong } from '@/lib/types';
 
@@ -84,11 +85,11 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
   const isActive = useIsActive();
   const theme = useTheme();
   const [commenting, setCommenting] = useState(comment !== '');
-  const trackId = song.spotify_track_id;
+  const url = songUrl(song);
 
   return (
     <Pressable
-      onPress={trackId ? () => Linking.openURL(spotifyTrackUrl(trackId)) : undefined}
+      onPress={url ? () => Linking.openURL(url) : undefined}
       onLongPress={drag}
       delayLongPress={150}
       accessibilityHint="Press and hold, then drag to change its rank">
@@ -100,6 +101,7 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
           artistName={song.artist_name}
           albumArtUrl={song.album_art_url}
           leading={<TrackNumber label={trackLabel(position - 1, total)} />}
+          credit={song.youtube_url ? <YoutubeTag /> : undefined}
           trailing={
             <View style={styles.trailing}>
               <ThemedText type="mono" themeColor={points < 0 ? 'danger' : 'textSecondary'}>

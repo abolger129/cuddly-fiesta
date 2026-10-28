@@ -29,21 +29,34 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
     isSpotifyConnected().then(setConnected);
   }, []);
 
+  const youtubeOnly = songs.filter((s) => s.youtube_url).length;
+  const youtubeNote = youtubeOnly > 0 && (
+    <ThemedText type="small" themeColor="textSecondary">
+      {youtubeOnly === 1 ? '1 song isn’t' : `${youtubeOnly} songs aren’t`} on Spotify, so{' '}
+      {youtubeOnly === 1 ? 'it’s' : 'they’re'} not in the playlist. Tap{' '}
+      {youtubeOnly === 1 ? 'it' : 'them'} in the list to play on YouTube.
+    </ThemedText>
+  );
+
   if (round.playlist_url) {
     const url = round.playlist_url;
     return (
       <Card>
         <ThemedText type="smallBold">Listen to this round</ThemedText>
         <Button title="Open playlist in Spotify" onPress={() => Linking.openURL(url)} />
+        {youtubeNote}
       </Card>
     );
   }
 
   if (!isCreator) {
     return (
-      <ThemedText type="small" themeColor="textSecondary">
-        Tap a song to hear it on Spotify. A playlist link will show up here once it&apos;s made.
-      </ThemedText>
+      <>
+        <ThemedText type="small" themeColor="textSecondary">
+          Tap a song to hear it. A playlist link will show up here once it&apos;s made.
+        </ThemedText>
+        {youtubeNote}
+      </>
     );
   }
 
@@ -83,6 +96,7 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
             Make a playlist of this round&apos;s {trackIds.length} songs on your Spotify account and
             share it with the group.
           </ThemedText>
+          {youtubeNote}
           <Button
             title="Make Spotify playlist"
             onPress={makePlaylist}
