@@ -9,13 +9,13 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.abolger129.music-league",
+      "bundleIdentifier": "com.abolger129.thegauntlet",
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.abolger129.musicleague",
+      "package": "com.abolger129.thegauntlet",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
