@@ -49,7 +49,7 @@ export default function NewGroupScreen() {
         setRematchOf(old);
         setName(`${old.name}: Rematch`.slice(0, 60));
         setGuessing(old.guessing_enabled);
-        setRules({ points_cap: old.points_cap, downvotes: old.downvotes });
+        setRules({ points_cap: old.points_cap, downvotes: old.downvotes, negative_points: old.negative_points });
         setSubmitHours(old.submit_hours);
         setVoteHours(old.vote_hours);
       });

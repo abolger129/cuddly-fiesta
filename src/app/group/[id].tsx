@@ -70,9 +70,12 @@ export default function GroupScreen() {
       : null;
   const profileOf = (userId: string) => members.find((m) => m.id === userId) ?? { id: userId, display_name: '' };
 
-  async function saveRules({ points_cap, downvotes }: ScoringRules) {
+  async function saveRules({ points_cap, downvotes, negative_points }: ScoringRules) {
     setSavingRules(true);
-    const { error } = await supabase.from('groups').update({ points_cap, downvotes }).eq('id', group.id);
+    const { error } = await supabase
+      .from('groups')
+      .update({ points_cap, downvotes, negative_points })
+      .eq('id', group.id);
     setSavingRules(false);
     if (!alertOnError('Could not change the scoring rules', error)) reload();
   }
