@@ -4,11 +4,12 @@ import { StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
+import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
-import { GUESS_BONUS_POINTS } from '@/lib/scoring';
+import { DEFAULT_RULES, GUESS_BONUS_POINTS } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 const STARTER_CATEGORIES = [
@@ -22,6 +23,7 @@ export default function NewGroupScreen() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
   const [guessing, setGuessing] = useState(false);
+  const [rules, setRules] = useState(DEFAULT_RULES);
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
@@ -44,12 +46,15 @@ export default function NewGroupScreen() {
       setCreating(false);
       return;
     }
-    if (guessing) {
-      const { error: settingError } = await supabase
+    const rulesChanged =
+      rules.points_cap !== DEFAULT_RULES.points_cap || rules.downvotes !== DEFAULT_RULES.downvotes;
+    if (rulesChanged || guessing) {
+      const { error: rulesError } = await supabase
         .from('groups')
-        .update({ guessing_enabled: true })
+        .update({ ...rules, guessing_enabled: guessing })
         .eq('id', data);
-      alertOnError('Group created, but guessing could not be turned on', settingError);
+      // The group exists either way; the creator can fix the settings on its page.
+      alertOnError('Your group was made, but its scoring rules were not saved', rulesError);
     }
     setCreating(false);
     router.replace(`/group/${data}`);
@@ -91,6 +96,8 @@ export default function NewGroupScreen() {
         onPress={() => setCategories((current) => [...current, ''])}
       />
 
+      <ThemedText type="smallBold">Scoring</ThemedText>
+      <ScoringRulesPicker rules={rules} onChange={setRules} />
       <View style={[styles.row, styles.setting]}>
         <View style={styles.field}>
           <ThemedText type="smallBold">Guess who picked it</ThemedText>

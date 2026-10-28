@@ -11,6 +11,10 @@ export type Group = {
   invite_code: string;
   created_by: string;
   total_rounds: number;
+  /** Only each voter's top N songs score. null: every ranked song scores. */
+  points_cap: number | null;
+  /** Each voter's last-place song loses a point. */
+  downvotes: boolean;
   /** Players can guess who picked each song for bonus points. */
   guessing_enabled: boolean;
   created_at: string;
@@ -53,6 +57,14 @@ export type Guess = {
   guesser_id: string;
   submission_id: string;
   guessed_user_id: string;
+};
+
+/** A voter's comment on a song. Only your own are visible until the round is finished. */
+export type SongComment = {
+  round_id: string;
+  submission_id: string;
+  voter_id: string;
+  body: string;
 };
 
 export type RoundProgress = {
