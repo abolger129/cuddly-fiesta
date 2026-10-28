@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.abolger129.thegauntlet",
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.abolger129.thegauntlet",
@@ -31,6 +32,7 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {

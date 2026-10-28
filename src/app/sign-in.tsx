@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,8 +8,11 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
 
+// Apple and Google sign-in come first; the emailed code stays as a fallback.
 // Passwordless sign-in: we email a one-time code and the user types it in.
 // Supabase lets the code length be set from 6 to 10 digits (8 by default).
 const MIN_CODE_LENGTH = 6;
@@ -19,6 +23,25 @@ export default function SignInScreen() {
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  async function socialSignIn(provider: 'Apple' | 'Google') {
+    setSocialLoading(true);
+    try {
+      await (provider === 'Apple' ? signInWithApple() : signInWithGoogle());
+      // On success the auth listener switches to the signed-in screens.
+    } catch (e) {
+      Alert.alert(`${provider} sign-in did not work`, e instanceof Error ? e.message : String(e));
+    } finally {
+      setSocialLoading(false);
+    }
+  }
 
   async function sendCode() {
     setLoading(true);
@@ -83,6 +106,28 @@ export default function SignInScreen() {
             </>
           ) : (
             <>
+              {appleAvailable && (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={
+                    colorScheme === 'dark'
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={APPLE_BUTTON_RADIUS}
+                  style={styles.appleButton}
+                  onPress={() => !socialLoading && socialSignIn('Apple')}
+                />
+              )}
+              <Button
+                title="Continue with Google"
+                variant="secondary"
+                onPress={() => socialSignIn('Google')}
+                loading={socialLoading}
+              />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.or}>
+                or use your email
+              </ThemedText>
               <TextField
                 value={email}
                 onChangeText={setEmail}
@@ -106,6 +151,9 @@ export default function SignInScreen() {
   );
 }
 
+// Matches the rounded corners of our own Button.
+const APPLE_BUTTON_RADIUS = Spacing.three;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -120,5 +168,11 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
+  },
+  appleButton: {
+    height: 48,
+  },
+  or: {
+    textAlign: 'center',
   },
 });
