@@ -15,7 +15,6 @@ import { alertOnError } from '@/lib/errors';
 import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { unregisterPushNotifications } from '@/lib/notifications';
 import { unblockPlayer } from '@/lib/safety';
-import { disconnectSpotify, isSpotifyConnected } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
@@ -24,13 +23,8 @@ export default function ProfileScreen() {
   const [name, setName] = useState('');
   const [doodle, setDoodle] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    isSpotifyConnected().then(setSpotifyConnected);
-  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -88,7 +82,6 @@ export default function ProfileScreen() {
       setDeleting(false);
       return;
     }
-    await disconnectSpotify();
     // The account is gone, so only clear the session on this device.
     await supabase.auth.signOut({ scope: 'local' });
   }
@@ -126,16 +119,6 @@ export default function ProfileScreen() {
       </Pressable>
 
       <Button title="Save name" onPress={save} loading={saving} disabled={!name.trim()} />
-      {spotifyConnected && (
-        <Button
-          title="Disconnect Spotify"
-          variant="secondary"
-          onPress={async () => {
-            await disconnectSpotify();
-            setSpotifyConnected(false);
-          }}
-        />
-      )}
       <Button
         title="Sign out"
         variant="secondary"

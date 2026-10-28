@@ -121,7 +121,7 @@ export default function GroupScreen() {
     const name = member.display_name || 'this player';
     const ok = await confirmDestructive(
       `Make ${name} the host?`,
-      `They'll start rounds and control the settings, and you'll become a regular player. They'll need to make a new league playlist on their Spotify account.`,
+      `They'll start rounds and control the settings, and you'll become a regular player.`,
       'Make host',
     );
     if (!ok) return;
@@ -237,7 +237,7 @@ export default function GroupScreen() {
       </View>
 
       <SectionLabel>Playlist</SectionLabel>
-      <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
+      <LeaguePlaylistCard details={data} />
 
       <SectionLabel>Players</SectionLabel>
       <View>
