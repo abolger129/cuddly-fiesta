@@ -96,6 +96,11 @@ function RootNavigator() {
           <Stack.Screen name="index" options={{ title: 'The Gauntlet' }} />
           <Stack.Screen name="stats" options={{ title: 'Stats' }} />
           <Stack.Screen name="profile" options={{ title: 'Settings', presentation: 'modal' }} />
+          {/* Full screen with swipe-to-close off, so drawing never drags the screen away. */}
+          <Stack.Screen
+            name="avatar"
+            options={{ title: 'Your avatar', presentation: 'fullScreenModal', gestureEnabled: false }}
+          />
           <Stack.Screen name="group/new" options={{ title: 'New league', presentation: 'modal' }} />
           <Stack.Screen name="group/join" options={{ title: 'Join a league', presentation: 'modal' }} />
           <Stack.Screen name="group/[id]" options={{ title: '' }} />
