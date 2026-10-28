@@ -41,13 +41,7 @@ An update can only change JavaScript and images. A new build is needed when a ch
 - changes `app.json` settings such as the icon, splash screen, app name, permissions or sign-in setup,
 - upgrades the Expo SDK.
 
-You don't have to keep track of this yourself. The app uses Expo's **fingerprint** runtime version, which is worked out from the app's native setup. If a change needs a new build, `eas update` publishes it under a new fingerprint that no existing build matches, so old builds simply ignore it instead of crashing. The PR descriptions in this repo say when a new build is needed.
-
-To check whether you need a new build before publishing, compare the fingerprint of your code with your latest build:
-
-```bash
-npx eas-cli@latest fingerprint:compare
-```
+Updates are matched to builds by the app's **version** in [`app.json`](../app.json) (`"version": "1.0.0"`). A build only accepts updates published with the same version. So when a change needs a new build, **bump the version first** (for example to `1.0.1`), then build, and publish later updates from that version. That way old builds never receive code they can't run. The PR descriptions in this repo say when a new build is needed.
 
 ## Undoing a bad update
 
