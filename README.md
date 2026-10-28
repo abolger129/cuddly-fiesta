@@ -1,6 +1,6 @@
-# Music League
+# The Gauntlet
 
-A mobile app for playing Music League with friends. Create a group, set a category for each round, and everyone submits a song that fits. Once all songs are in, a Spotify playlist is made for the round, everyone ranks the songs, and the person with the highest total score after the last round wins.
+A mobile app for playing a Music League style game with friends. Create a group, set a category for each round, and everyone submits a song that fits. Once all songs are in, a Spotify playlist is made for the round, everyone ranks the songs, and the person with the highest total score after the last round wins.
 
 Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and Android, with [Supabase](https://supabase.com) for sign-in and the database.
 
@@ -30,7 +30,7 @@ npm install
 3. Sign-in uses a one-time code sent by email (8 digits by default; the length is under **Authentication > Sign In / Providers > Email**, and the app accepts 6 to 10). Under **Authentication > Emails > Templates**, edit both **Magic Link** (returning users) and **Confirm signup** (someone's first sign-in) so the email body shows `{{ .Token }}` instead of a link, for example:
 
    ```html
-   <h2>Your Music League code</h2>
+   <h2>Your code for The Gauntlet</h2>
    <p>Enter this code in the app: <strong>{{ .Token }}</strong></p>
    ```
 

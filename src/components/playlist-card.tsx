@@ -62,7 +62,7 @@ export function PlaylistCard({ details, isCreator, onChanged }: PlaylistCardProp
     try {
       const url = await createPlaylist(
         `${group.name}: Round ${round.round_number}`,
-        `Music League round ${round.round_number}: ${round.category}`,
+        `The Gauntlet round ${round.round_number}: ${round.category}`,
         trackIds
       );
       const { error } = await supabase.from('rounds').update({ playlist_url: url }).eq('id', round.id);

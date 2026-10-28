@@ -47,7 +47,7 @@ export default function GroupScreen() {
 
   function shareInvite() {
     Share.share({
-      message: `Join my Music League group "${group.name}" with invite code ${group.invite_code}`,
+      message: `Join my group "${group.name}" on The Gauntlet with invite code ${group.invite_code}`,
     });
   }
 
