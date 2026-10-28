@@ -26,14 +26,25 @@ npm install
 
 ### 2. Set up Supabase (free)
 
-1. Create a project at [supabase.com](https://supabase.com/dashboard).
-2. Open **SQL Editor** and run each file in [`supabase/migrations`](supabase/migrations) in order, oldest first: paste in its contents and press Run. When a new file shows up there later, run just that one.
+1. Create a project at [supabase.com](https://supabase.com/dashboard). Find your project ref in its URL (`https://<project-ref>.supabase.co`), then log in and link the CLI to it:
+
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <project-ref>
+   ```
+
+2. Apply the database migrations in [`supabase/migrations`](supabase/migrations). When a new file shows up there later, run the same command again and only the new one is applied.
+   - Hosted project: `npx supabase db push`
+   - Running the Supabase stack locally: `npx supabase migration up`
+   - Or, without the CLI, open **SQL Editor** and run each file in order, oldest first: paste in its contents and press Run.
 3. Sign-in uses a one-time code sent by email (8 digits by default; the length is under **Authentication > Sign In / Providers > Email**, and the app accepts 6 to 10). Under **Authentication > Emails > Templates**, edit both **Magic Link** (returning users) and **Confirm signup** (someone's first sign-in) so the email body shows `{{ .Token }}` instead of a link, for example:
 
    ```html
    <h2>Your code for The Gauntlet</h2>
    <p>Enter this code in the app: <strong>{{ .Token }}</strong></p>
    ```
+
+   Save both templates. Changes can take a moment to apply, so if the email still contains a link instead of a code, wait a couple of minutes and request a fresh code (old emails keep their old format).
 
 4. Copy `.env.example` to `.env` and fill in the Supabase values: the project URL (from the **Connect** button) and the **publishable** (or anon) key from **Project Settings > API Keys**. Never use the secret / service_role key in the app.
 
@@ -48,11 +59,9 @@ Spotify requires the owner of a developer app to have **Spotify Premium**, and a
    - **APIs used:** Web API
 2. Copy the app's **Client ID** into `.env` as `EXPO_PUBLIC_SPOTIFY_CLIENT_ID`. The Client ID is fine to put in the app; the **Client secret is not**, it only goes to Supabase in the next step.
 3. If friends will create groups too, add their Spotify email under the app's **User Management**.
-4. Deploy the song search function to Supabase and give it your Spotify keys. Find your project ref in your Supabase project URL (`https://<project-ref>.supabase.co`).
+4. Deploy the song search function to Supabase and give it your Spotify keys (this uses the CLI login and link from the Supabase step above).
 
    ```bash
-   npx supabase login
-   npx supabase link --project-ref <project-ref>
    npx supabase secrets set SPOTIFY_CLIENT_ID=<client id> SPOTIFY_CLIENT_SECRET=<client secret>
    npx supabase functions deploy spotify-search
    ```

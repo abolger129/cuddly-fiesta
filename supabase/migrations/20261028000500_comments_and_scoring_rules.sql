@@ -13,10 +13,10 @@
 -- Scoring rules ---------------------------------------------------------------
 
 alter table public.groups
-  add column points_cap int check (points_cap between 1 and 20),
-  add column downvotes boolean not null default false;
+  add column if not exists points_cap int check (points_cap between 1 and 20),
+  add column if not exists downvotes boolean not null default false;
 
-create function public.lock_scoring_rules()
+create or replace function public.lock_scoring_rules()
 returns trigger
 language plpgsql
 security definer set search_path = ''
@@ -30,13 +30,13 @@ begin
 end;
 $$;
 
-create trigger on_group_scoring_rules_changed
+create or replace trigger on_group_scoring_rules_changed
   before update on public.groups
   for each row execute function public.lock_scoring_rules();
 
 -- Comments --------------------------------------------------------------------
 
-create table public.song_comments (
+create table if not exists public.song_comments (
   round_id uuid not null references public.rounds (id) on delete cascade,
   submission_id uuid not null references public.submissions (id) on delete cascade,
   voter_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
@@ -45,10 +45,11 @@ create table public.song_comments (
   primary key (submission_id, voter_id)
 );
 
-create index song_comments_round_id_idx on public.song_comments (round_id);
+create index if not exists song_comments_round_id_idx on public.song_comments (round_id);
 
 alter table public.song_comments enable row level security;
 
+drop policy if exists "Voters see own comments, or all once the round is finished" on public.song_comments;
 create policy "Voters see own comments, or all once the round is finished"
   on public.song_comments for select to authenticated
   using (
@@ -62,7 +63,7 @@ create policy "Voters see own comments, or all once the round is finished"
 -- Save your comments for a round. Replaces any comments you saved before:
 -- songs left out (or with a blank comment) have their comment removed.
 -- submission_ids and bodies line up one to one.
-create function public.save_song_comments(rid uuid, submission_ids uuid[], bodies text[])
+create or replace function public.save_song_comments(rid uuid, submission_ids uuid[], bodies text[])
 returns void
 language plpgsql
 security definer set search_path = ''

@@ -9,7 +9,7 @@
 alter table public.submissions alter column spotify_track_id drop not null;
 
 -- Create a group and its rounds in one go. One round per category, in order.
-create function public.create_group(group_name text, categories text[])
+create or replace function public.create_group(group_name text, categories text[])
 returns uuid
 language plpgsql
 security definer set search_path = ''
@@ -38,7 +38,7 @@ end;
 $$;
 
 -- Open the next round for submissions. Rounds are played in order, one at a time.
-create function public.start_round(rid uuid)
+create or replace function public.start_round(rid uuid)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -67,7 +67,7 @@ end;
 $$;
 
 -- Move a round on early: close submissions, or close voting.
-create function public.advance_round(rid uuid)
+create or replace function public.advance_round(rid uuid)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -96,7 +96,7 @@ end;
 $$;
 
 -- How far along a round is, without revealing who has submitted what.
-create function public.round_progress(rid uuid)
+create or replace function public.round_progress(rid uuid)
 returns table (
   member_count int,
   submitted_count int,
@@ -120,7 +120,7 @@ $$;
 
 -- The round's songs without who picked them, for ranking. Only available once
 -- voting has started. is_mine lets the app leave out your own song.
-create function public.round_songs(rid uuid)
+create or replace function public.round_songs(rid uuid)
 returns table (
   id uuid,
   spotify_track_id text,
@@ -145,7 +145,7 @@ $$;
 
 -- Save a ranking. ordered_ids is every song in the round except your own,
 -- favourite first. Replaces any ranking you saved before.
-create function public.submit_ranking(rid uuid, ordered_ids uuid[])
+create or replace function public.submit_ranking(rid uuid, ordered_ids uuid[])
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -184,7 +184,7 @@ end;
 $$;
 
 -- Everyone has submitted: start voting.
-create function public.open_voting_when_all_submitted()
+create or replace function public.open_voting_when_all_submitted()
 returns trigger
 language plpgsql
 security definer set search_path = ''
@@ -202,6 +202,6 @@ begin
 end;
 $$;
 
-create trigger on_submission_added
+create or replace trigger on_submission_added
   after insert on public.submissions
   for each row execute function public.open_voting_when_all_submitted();

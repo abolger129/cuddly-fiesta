@@ -19,19 +19,19 @@ create extension if not exists pg_cron;
 -- Timers --------------------------------------------------------------------
 
 alter table public.groups
-  add column submit_hours int check (submit_hours between 1 and 720),
-  add column vote_hours int check (vote_hours between 1 and 720);
+  add column if not exists submit_hours int check (submit_hours between 1 and 720),
+  add column if not exists vote_hours int check (vote_hours between 1 and 720);
 
 alter table public.rounds
-  add column submit_deadline timestamptz,
-  add column vote_deadline timestamptz,
-  add column submit_reminded boolean not null default false,
-  add column vote_reminded boolean not null default false;
+  add column if not exists submit_deadline timestamptz,
+  add column if not exists vote_deadline timestamptz,
+  add column if not exists submit_reminded boolean not null default false,
+  add column if not exists vote_reminded boolean not null default false;
 
 -- Set the deadline for a stage when a round enters it, however it got there
 -- (the creator starting it, everyone being in, the creator moving it on, or
 -- time running out).
-create function public.set_round_deadlines()
+create or replace function public.set_round_deadlines()
 returns trigger
 language plpgsql
 security definer set search_path = ''
@@ -49,7 +49,7 @@ begin
 end;
 $$;
 
-create trigger on_round_status_changed
+create or replace trigger on_round_status_changed
   before update of status on public.rounds
   for each row
   when (new.status is distinct from old.status)
@@ -58,7 +58,7 @@ create trigger on_round_status_changed
 -- Move on rounds whose time is up, in one group or (gid null) all of them.
 -- Ranking needs at least two songs, so a round with fewer stays open for picks
 -- past its deadline until a second song comes in.
-create function public.move_rounds_past_deadline(gid uuid)
+create or replace function public.move_rounds_past_deadline(gid uuid)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -78,7 +78,7 @@ end;
 $$;
 
 -- For the app: any member can ask for their group's deadlines to be applied.
-create function public.close_expired_rounds(gid uuid)
+create or replace function public.close_expired_rounds(gid uuid)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -95,7 +95,7 @@ $$;
 
 -- Expo push tokens, one per device. A device belongs to whoever signed in on
 -- it last. Only reachable through the functions below.
-create table public.push_tokens (
+create table if not exists public.push_tokens (
   token text primary key,
   user_id uuid not null references public.profiles (id) on delete cascade,
   updated_at timestamptz not null default now()
@@ -103,7 +103,7 @@ create table public.push_tokens (
 
 alter table public.push_tokens enable row level security;
 
-create function public.save_push_token(t text)
+create or replace function public.save_push_token(t text)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -118,7 +118,7 @@ begin
 end;
 $$;
 
-create function public.remove_push_token(t text)
+create or replace function public.remove_push_token(t text)
 returns void
 language sql
 security definer set search_path = ''
@@ -129,7 +129,7 @@ $$;
 -- Send a notification to some players' devices. link is the app screen to
 -- open when it is tapped. Expo takes up to 100 messages per request, plenty
 -- for a group of friends.
-create function public.send_push(recipients uuid[], msg_title text, msg_body text, link text)
+create or replace function public.send_push(recipients uuid[], msg_title text, msg_body text, link text)
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -160,7 +160,7 @@ end;
 $$;
 
 -- "1 day", "2 days", "12 hours"
-create function public.describe_hours(h int)
+create or replace function public.describe_hours(h int)
 returns text
 language sql
 immutable
@@ -173,7 +173,7 @@ $$;
 
 -- Tell everyone in the group when a round opens, when ranking starts, and when
 -- the results are in.
-create function public.notify_round_status()
+create or replace function public.notify_round_status()
 returns trigger
 language plpgsql
 security definer set search_path = ''
@@ -203,7 +203,7 @@ begin
 end;
 $$;
 
-create trigger on_round_status_notify
+create or replace trigger on_round_status_notify
   after update of status on public.rounds
   for each row
   when (new.status is distinct from old.status)
@@ -211,7 +211,7 @@ create trigger on_round_status_notify
 
 -- Remind players who haven't picked or ranked yet. The reminder goes out with
 -- 3 hours left, or a quarter of the time for short timers.
-create function public.send_deadline_reminders()
+create or replace function public.send_deadline_reminders()
 returns void
 language plpgsql
 security definer set search_path = ''
@@ -266,7 +266,7 @@ end;
 $$;
 
 -- Run by pg_cron every five minutes.
-create function public.run_round_timers()
+create or replace function public.run_round_timers()
 returns void
 language plpgsql
 security definer set search_path = ''
