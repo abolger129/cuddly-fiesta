@@ -4,10 +4,10 @@
 -- each song (except their own). Each correct guess earns bonus points, which
 -- the app adds up from these rows, like the ranking points.
 
-alter table public.groups add column guessing_enabled boolean not null default false;
+alter table public.groups add column if not exists guessing_enabled boolean not null default false;
 
 -- One row per (guesser, song). Guesses stay private until the round is finished.
-create table public.guesses (
+create table if not exists public.guesses (
   round_id uuid not null references public.rounds (id) on delete cascade,
   guesser_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
   submission_id uuid not null references public.submissions (id) on delete cascade,
@@ -20,6 +20,7 @@ alter table public.guesses enable row level security;
 
 -- Guesses are written through save_guesses below, so there are no insert or
 -- delete policies.
+drop policy if exists "Guessers see own guesses, or all once the round is finished" on public.guesses;
 create policy "Guessers see own guesses, or all once the round is finished"
   on public.guesses for select to authenticated
   using (
@@ -33,7 +34,7 @@ create policy "Guessers see own guesses, or all once the round is finished"
 -- Save your guesses for a round. submission_ids[i] was picked by
 -- guessed_user_ids[i]. Songs you leave out are not guessed. Replaces any
 -- guesses you saved before.
-create function public.save_guesses(rid uuid, submission_ids uuid[], guessed_user_ids uuid[])
+create or replace function public.save_guesses(rid uuid, submission_ids uuid[], guessed_user_ids uuid[])
 returns void
 language plpgsql
 security definer set search_path = ''
