@@ -92,6 +92,7 @@ function RootNavigator() {
         }}>
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="index" options={{ title: 'The Gauntlet' }} />
+          <Stack.Screen name="stats" options={{ title: 'Stats' }} />
           <Stack.Screen name="profile" options={{ title: 'Settings', presentation: 'modal' }} />
           <Stack.Screen name="group/new" options={{ title: 'New group', presentation: 'modal' }} />
           <Stack.Screen name="group/join" options={{ title: 'Join a group', presentation: 'modal' }} />

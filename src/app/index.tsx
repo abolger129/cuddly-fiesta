@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
@@ -9,20 +8,18 @@ import { Sleeve } from '@/components/sleeve';
 import { ThemedText } from '@/components/themed-text';
 import { colorForId, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
+import { useTheme } from '@/hooks/use-theme';
+import { nameOf } from '@/lib/group-data';
+import { isLeagueOver, placesFrom, songScores, standingsFor, type LeagueRecord } from '@/lib/history';
+import { loadLeagueHistory } from '@/lib/history-data';
 import { unregisterPushNotifications } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import type { Group } from '@/lib/types';
 
 export default function GroupsScreen() {
-  const loadGroups = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('groups')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Group[];
-  }, []);
-  const { data: groups, error, loading, reload } = useLoader(loadGroups);
+  const { data, error, loading, reload } = useLoader(loadLeagueHistory);
+  const groups = data?.groups;
+  const current = groups?.filter((g) => !isLeagueOver(g.rounds)) ?? [];
+  const past = groups?.filter((g) => isLeagueOver(g.rounds)) ?? [];
 
   return (
     <Screen refreshing={loading} onRefresh={reload}>
@@ -36,8 +33,8 @@ export default function GroupsScreen() {
         />
       </View>
 
-      {!!groups?.length && <SectionLabel>Your leagues</SectionLabel>}
-      {groups?.map((group) => (
+      {current.length > 0 && <SectionLabel>Your leagues</SectionLabel>}
+      {current.map((group) => (
         <Sleeve
           key={group.id}
           color={colorForId(group.id)}
@@ -46,6 +43,12 @@ export default function GroupsScreen() {
           onPress={() => router.push(`/group/${group.id}`)}
         />
       ))}
+
+      {past.length > 0 && <SectionLabel>Past leagues</SectionLabel>}
+      {past.map((group) => {
+        const record = data?.records.get(group.id);
+        return record && <PastLeague key={group.id} league={record} />;
+      })}
 
       {!loading && (error || groups?.length === 0) && (
         <View style={styles.empty}>
@@ -59,6 +62,7 @@ export default function GroupsScreen() {
       )}
 
       <View style={styles.footer}>
+        {past.length > 0 && <Button title="Stats" variant="secondary" onPress={() => router.push('/stats')} />}
         <Button title="Settings" variant="secondary" onPress={() => router.push('/profile')} />
         <Button title="Sign out" variant="secondary" onPress={async () => {
             await unregisterPushNotifications();
@@ -69,7 +73,43 @@ export default function GroupsScreen() {
   );
 }
 
+/** A finished league: who won, and the song of the league. */
+function PastLeague({ league }: { league: LeagueRecord }) {
+  const theme = useTheme();
+  const standings = standingsFor(league);
+  const places = placesFrom(standings);
+  const winners = standings.filter((s) => places.get(s.userId) === 1);
+  const best = songScores(league)[0];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push(`/group/${league.group.id}`)}
+      style={({ pressed }) => [styles.past, { borderBottomColor: theme.rule }, pressed && styles.pressed]}>
+      <ThemedText type="smallBold">{league.group.name}</ThemedText>
+      {winners.length > 0 && (
+        <ThemedText type="small">
+          {winners.length > 1 ? 'Joint winners' : 'Winner'}: {winners.map((w) => nameOf(league.members, w.userId)).join(' & ')} ·{' '}
+          {winners[0].points} pts
+        </ThemedText>
+      )}
+      {best && best.points > 0 && (
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          Song of the league: {best.submission.track_name} by {best.submission.artist_name}
+        </ThemedText>
+      )}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  past: {
+    gap: Spacing.half,
+    paddingVertical: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
   actions: {
     flexDirection: 'row',
     gap: Spacing.two,

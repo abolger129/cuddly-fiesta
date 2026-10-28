@@ -4,7 +4,9 @@ import { Pressable, Share, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { SuggestCategory, UpcomingRoundsEditor } from '@/components/category-cards';
 import { DeadlineLabel } from '@/components/deadline-label';
+import { LeagueAwards } from '@/components/league-awards';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
@@ -21,6 +23,7 @@ import { describeHours } from '@/lib/deadlines';
 import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
+import { isLeagueOver } from '@/lib/history';
 import { describeRules, GUESS_BONUS_POINTS, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 import type { Group, Profile, Round } from '@/lib/types';
@@ -52,6 +55,7 @@ export default function GroupScreen() {
   const nextRound = rounds.find((r) => r.status === 'upcoming');
   const roundInProgress = rounds.some((r) => r.status === 'submitting' || r.status === 'voting');
   const rulesLocked = rounds.some((r) => r.status !== 'upcoming');
+  const leagueOver = isLeagueOver(rounds);
 
   async function saveRules({ points_cap, downvotes }: ScoringRules) {
     setSavingRules(true);
@@ -87,6 +91,20 @@ export default function GroupScreen() {
     const { error } = await supabase.rpc('remove_member', { gid: group.id, uid: member.id });
     setRemoving(null);
     if (!alertOnError('Could not remove the player', error)) reload();
+  }
+
+  async function makeHost(member: Profile) {
+    const name = member.display_name || 'this player';
+    const ok = await confirmDestructive(
+      `Make ${name} the host?`,
+      `They'll start rounds and control the settings, and you'll become a regular player. They'll need to make a new league playlist on their Spotify account.`,
+      'Make host',
+    );
+    if (!ok) return;
+    setRemoving(member.id);
+    const { error } = await supabase.rpc('transfer_host', { gid: group.id, new_host: member.id });
+    setRemoving(null);
+    if (!alertOnError('Could not pass hosting on', error)) reload();
   }
 
   async function leaveLeague() {
@@ -162,6 +180,13 @@ export default function GroupScreen() {
         )}
       </View>
 
+      {leagueOver && (
+        <>
+          <SectionLabel>Awards</SectionLabel>
+          <LeagueAwards league={data} />
+        </>
+      )}
+
       <SectionLabel>The shelf</SectionLabel>
       <View style={styles.shelf}>
         {rounds.map((round) => (
@@ -182,6 +207,18 @@ export default function GroupScreen() {
             {isCreator && m.id !== group.created_by && (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={`Make ${m.display_name || 'this player'} the host`}
+                disabled={removing !== null}
+                onPress={() => makeHost(m)}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  Make host
+                </ThemedText>
+              </Pressable>
+            )}
+            {isCreator && m.id !== group.created_by && (
+              <Pressable
+                accessibilityRole="button"
                 accessibilityLabel={`Remove ${m.display_name || 'this player'}`}
                 disabled={removing !== null}
                 onPress={() => removeMember(m)}
@@ -198,6 +235,7 @@ export default function GroupScreen() {
       {isCreator ? (
         <>
           <SectionLabel>Host settings</SectionLabel>
+          <UpcomingRoundsEditor details={data} onChanged={reload} />
           <Card>
             <View style={styles.row}>
               <ThemedText type="smallBold" style={styles.grow}>
@@ -249,6 +287,9 @@ export default function GroupScreen() {
               </ThemedText>
             )}
           </Card>
+          {!leagueOver && session && (
+            <SuggestCategory details={data} userId={session.user.id} onChanged={reload} />
+          )}
           <Button title="Leave league" variant="secondary" onPress={leaveLeague} loading={removing !== null} />
         </>
       )}
