@@ -41,8 +41,8 @@ An empty account only shows "start a league". Sign in as the demo account yourse
 > Sign-in is normally passwordless (Sign in with Apple, Google, or a one-time code by email).
 > For review, tap "Sign in with a password" under the email box on the sign-in screen and
 > use the account above. It is already in a league called "Demo League" with a finished
-> round and an open round. Connecting Spotify is only needed by the person who starts a
-> league, to create its playlist, and is not needed to try the game.
+> round and an open round. Nobody needs a Spotify account: playlists are made
+> automatically and open in Spotify from a link.
 
 TestFlight external testing has the same fields under **TestFlight → Test Information**.
 Google Play has them under **App content → App access**.

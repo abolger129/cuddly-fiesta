@@ -436,7 +436,7 @@ function Voting({
         header={
           <View style={styles.votingHeader}>
             {header}
-            <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
+            <PlaylistCard details={details} />
             <ThemedText themeColor="textSecondary">
               {progress.has_ranked
                 ? `Your ranking is saved. You can still change it until everyone has voted${round.vote_deadline ? ' or time runs out' : ''}.`
@@ -566,7 +566,7 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
           {winnerSpotted} of {winnerGuesses.length} guessed {nameOf(members, winner.user_id)}
         </ThemedText>
       )}
-      <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
+      <PlaylistCard details={details} />
       <SectionLabel>The credits</SectionLabel>
       <View>
         {results.map((s, i) => {

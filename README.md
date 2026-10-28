@@ -55,21 +55,30 @@ Note: Supabase's built-in email sender only allows a few emails per hour. That's
 
 ### 3. Set up Spotify (free, but needs Premium)
 
-Spotify requires the owner of a developer app to have **Spotify Premium**, and a new app can have at most **5 Spotify users** connect to it. Only the person who creates a group connects their Spotify (the playlists go on their account); everyone else's song search doesn't count towards that limit.
+Spotify requires the owner of a developer app to have **Spotify Premium**, and a new app can have at most **5 Spotify users**. So nobody in the app connects Spotify: every playlist is made on Supabase, on **your** Spotify account, and players just get the link. Opening a link and searching for songs don't count towards the limit, so a league can have any number of players. Playlists are private, so they stay off your public profile, but anyone with the link can open them.
 
 1. Go to the [Spotify developer dashboard](https://developer.spotify.com/dashboard) and create an app.
-   - **Redirect URI:** `musicleague://spotify-auth`
+   - **Redirect URI:** `https://<project-ref>.supabase.co/functions/v1/spotify-owner-connect` (your Supabase project URL, then `/functions/v1/spotify-owner-connect`)
    - **APIs used:** Web API
-2. Copy the app's **Client ID** into `.env` as `EXPO_PUBLIC_SPOTIFY_CLIENT_ID`. The Client ID is fine to put in the app; the **Client secret is not**, it only goes to Supabase in the next step.
-3. If friends will create groups too, add their Spotify email under the app's **User Management**.
-4. Deploy the song search function to Supabase and give it your Spotify keys (this uses the CLI login and link from the Supabase step above).
+2. Copy the app's **Client ID** into `.env` as `EXPO_PUBLIC_SPOTIFY_CLIENT_ID`. The **Client secret** never goes in the app; it only goes to Supabase in the next step.
+3. Deploy the Spotify functions to Supabase and give them your Spotify keys (this uses the CLI login and link from the Supabase step above).
 
    ```bash
    npx supabase secrets set SPOTIFY_CLIENT_ID=<client id> SPOTIFY_CLIENT_SECRET=<client secret>
    npx supabase functions deploy spotify-search
+   npx supabase functions deploy spotify-playlist
+   npx supabase functions deploy spotify-owner-connect --no-verify-jwt
    ```
 
-Song search works in Expo Go. **Connecting Spotify to make playlists needs a development build** instead of Expo Go, because Expo Go can't use the app's own `musicleague://` address. Run `npx expo run:ios` to build it into the iPhone simulator (needs Xcode).
+4. Connect your Spotify account once: open `https://<project-ref>.supabase.co/functions/v1/spotify-owner-connect` in a browser and sign in to Spotify. The page shows a command; run it to save your refresh token:
+
+   ```bash
+   npx supabase secrets set SPOTIFY_REFRESH_TOKEN=<token from the page>
+   ```
+
+   Keep that token private: it lets anyone make playlists on your account. If playlists ever stop being made with "The playlist account needs reconnecting", repeat this step.
+
+A round's playlist is made the first time anyone opens the round after ranking starts, and the league playlist updates itself as rounds finish. This works in Expo Go too.
 
 ### 4. Start the app
 
