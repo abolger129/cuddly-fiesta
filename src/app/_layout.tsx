@@ -18,6 +18,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Brand, Colors, Fonts } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/notifications';
+import { useBackgroundUpdates } from '@/lib/updates';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -75,6 +76,7 @@ export default function RootLayout() {
 function RootNavigator() {
   const { session, isLoading } = useAuth();
   const userId = session?.user.id;
+  useBackgroundUpdates();
 
   useEffect(() => {
     if (userId) registerForPushNotifications().catch(() => {});

@@ -39,7 +39,7 @@ Heads up for later: a new personal Google Play account has to run a closed test 
 npx eas-cli@latest build --profile preview --platform android
 ```
 
-Accept the offer to generate a new Android keystore. When the build finishes (10 to 20 minutes) you get a link and a QR code. Send the link to friends; they open it on their phone, download the app, and allow installs from their browser when Android asks. For a new version, run the same command and send the new link.
+Accept the offer to generate a new Android keystore. When the build finishes (10 to 20 minutes) you get a link and a QR code. Send the link to friends; they open it on their phone, download the app, and allow installs from their browser when Android asks. For a new version, run the same command and send the new link. Most changes don't need a new build at all: see [over-the-air updates](over-the-air-updates.md).
 
 ## iPhone friends: TestFlight
 
@@ -57,7 +57,7 @@ Then in [App Store Connect](https://appstoreconnect.apple.com) > your app > **Te
 2. For friends, create an **External Testing** group, add the build, and fill in the short test information Apple asks for (what to test, a contact email). The first build gets a quick Apple review, usually within a day.
 3. Turn on the group's **public link** and send it to friends. They install the free **TestFlight** app from the App Store, open your link, and tap Install.
 
-For a new version, run the same build command; testers get the update in TestFlight. TestFlight builds expire after 90 days.
+For a new version, run the same build command; testers get the update in TestFlight. Most changes can skip this and go out as an [over-the-air update](over-the-air-updates.md). TestFlight builds expire after 90 days.
 
 ## Before inviting people
 
