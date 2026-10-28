@@ -77,6 +77,15 @@ export type SongComment = {
   body: string;
 };
 
+/** A player's idea for a future round's category. */
+export type CategorySuggestion = {
+  id: string;
+  group_id: string;
+  user_id: string;
+  category: string;
+  created_at: string;
+};
+
 export type RoundProgress = {
   member_count: number;
   submitted_count: number;

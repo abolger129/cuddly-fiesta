@@ -4,7 +4,9 @@ import { Pressable, Share, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { SuggestCategory, UpcomingRoundsEditor } from '@/components/category-cards';
 import { DeadlineLabel } from '@/components/deadline-label';
+import { LeagueAwards } from '@/components/league-awards';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
@@ -18,11 +20,13 @@ import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { describeHours } from '@/lib/deadlines';
+import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
+import { isLeagueOver } from '@/lib/history';
 import { describeRules, GUESS_BONUS_POINTS, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
-import type { Group, Round } from '@/lib/types';
+import type { Group, Profile, Round } from '@/lib/types';
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +37,8 @@ export default function GroupScreen() {
   const [starting, setStarting] = useState(false);
   const [savingGuessing, setSavingGuessing] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (!data) {
     return (
@@ -49,6 +55,7 @@ export default function GroupScreen() {
   const nextRound = rounds.find((r) => r.status === 'upcoming');
   const roundInProgress = rounds.some((r) => r.status === 'submitting' || r.status === 'voting');
   const rulesLocked = rounds.some((r) => r.status !== 'upcoming');
+  const leagueOver = isLeagueOver(rounds);
 
   async function saveRules({ points_cap, downvotes }: ScoringRules) {
     setSavingRules(true);
@@ -70,6 +77,61 @@ export default function GroupScreen() {
     const { error } = await supabase.from('groups').update({ guessing_enabled: enabled }).eq('id', group.id);
     setSavingGuessing(false);
     if (!alertOnError('Could not change the setting', error)) reload();
+  }
+
+  async function removeMember(member: Profile) {
+    const name = member.display_name || 'this player';
+    const ok = await confirmDestructive(
+      `Remove ${name}?`,
+      'They leave the league. Their songs and votes in finished rounds stay; anything in the round in progress is dropped.',
+      'Remove',
+    );
+    if (!ok) return;
+    setRemoving(member.id);
+    const { error } = await supabase.rpc('remove_member', { gid: group.id, uid: member.id });
+    setRemoving(null);
+    if (!alertOnError('Could not remove the player', error)) reload();
+  }
+
+  async function makeHost(member: Profile) {
+    const name = member.display_name || 'this player';
+    const ok = await confirmDestructive(
+      `Make ${name} the host?`,
+      `They'll start rounds and control the settings, and you'll become a regular player. They'll need to make a new league playlist on their Spotify account.`,
+      'Make host',
+    );
+    if (!ok) return;
+    setRemoving(member.id);
+    const { error } = await supabase.rpc('transfer_host', { gid: group.id, new_host: member.id });
+    setRemoving(null);
+    if (!alertOnError('Could not pass hosting on', error)) reload();
+  }
+
+  async function leaveLeague() {
+    if (!session) return;
+    const ok = await confirmDestructive(
+      `Leave ${group.name}?`,
+      'You can rejoin later with the invite code.',
+      'Leave',
+    );
+    if (!ok) return;
+    setRemoving(session.user.id);
+    const { error } = await supabase.rpc('remove_member', { gid: group.id, uid: session.user.id });
+    setRemoving(null);
+    if (!alertOnError('Could not leave the league', error)) router.replace('/');
+  }
+
+  async function deleteLeague() {
+    const ok = await confirmDestructive(
+      `Delete ${group.name}?`,
+      'This deletes every round, song, ranking and comment for everyone in the league. It can\'t be undone.',
+      'Delete',
+    );
+    if (!ok) return;
+    setDeleting(true);
+    const { error } = await supabase.from('groups').delete().eq('id', group.id);
+    setDeleting(false);
+    if (!alertOnError('Could not delete the league', error)) router.replace('/');
   }
 
   function shareInvite() {
@@ -118,6 +180,13 @@ export default function GroupScreen() {
         )}
       </View>
 
+      {leagueOver && (
+        <>
+          <SectionLabel>Awards</SectionLabel>
+          <LeagueAwards league={data} />
+        </>
+      )}
+
       <SectionLabel>The shelf</SectionLabel>
       <View style={styles.shelf}>
         {rounds.map((round) => (
@@ -127,51 +196,103 @@ export default function GroupScreen() {
 
       <LeaguePlaylistCard details={data} isCreator={isCreator} onChanged={reload} />
 
-      <SectionLabel>House rules</SectionLabel>
-      {(isCreator || group.guessing_enabled) && (
-        <Card>
-          <View style={styles.row}>
-            <ThemedText type="smallBold" style={styles.grow}>
-              Guess who picked it
+      <SectionLabel>Players</SectionLabel>
+      <View>
+        {members.map((m) => (
+          <View key={m.id} style={[styles.standing, { borderBottomColor: theme.rule }]}>
+            <ThemedText type="small" style={styles.grow}>
+              {m.display_name || 'Someone'}
+              {m.id === group.created_by ? ' (host)' : ''}
             </ThemedText>
-            {isCreator && (
+            {isCreator && m.id !== group.created_by && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Make ${m.display_name || 'this player'} the host`}
+                disabled={removing !== null}
+                onPress={() => makeHost(m)}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  Make host
+                </ThemedText>
+              </Pressable>
+            )}
+            {isCreator && m.id !== group.created_by && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${m.display_name || 'this player'}`}
+                disabled={removing !== null}
+                onPress={() => removeMember(m)}
+                style={({ pressed }) => (pressed || removing === m.id) && styles.pressed}>
+                <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                  Remove
+                </ThemedText>
+              </Pressable>
+            )}
+          </View>
+        ))}
+      </View>
+
+      {isCreator ? (
+        <>
+          <SectionLabel>Host settings</SectionLabel>
+          <UpcomingRoundsEditor details={data} onChanged={reload} />
+          <Card>
+            <View style={styles.row}>
+              <ThemedText type="smallBold" style={styles.grow}>
+                Guess who picked it
+              </ThemedText>
               <Switch
                 value={group.guessing_enabled}
                 onValueChange={setGuessing}
                 disabled={savingGuessing}
                 accessibilityLabel="Guess who picked it"
               />
-            )}
-          </View>
-          <ThemedText type="small" themeColor="textSecondary">
-            {group.guessing_enabled
-              ? `While ranking, guess who picked each song. Right guesses are worth ${GUESS_BONUS_POINTS} bonus points.`
-              : 'Turn on to let players guess who picked each song for bonus points.'}
-          </ThemedText>
-        </Card>
-      )}
-
-      <Card>
-        <ThemedText type="label" themeColor="textSecondary">
-          Scoring
-        </ThemedText>
-        {isCreator && !rulesLocked ? (
-          <>
-            <ScoringRulesPicker rules={group} onChange={saveRules} disabled={savingRules} />
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
-              You can change this until the first round starts.
+              {group.guessing_enabled
+                ? `While ranking, players guess who picked each song. Right guesses are worth ${GUESS_BONUS_POINTS} bonus points.`
+                : 'Turn on to let players guess who picked each song for bonus points.'}
             </ThemedText>
-          </>
-        ) : (
-          <ThemedText type="small">{describeRules(group)}</ThemedText>
-        )}
-      </Card>
+          </Card>
 
-      <RoundTimers group={group} isCreator={isCreator} onChanged={reload} />
+          <Card>
+            <ThemedText type="label" themeColor="textSecondary">
+              Scoring
+            </ThemedText>
+            {rulesLocked ? (
+              <ThemedText type="small">{describeRules(group)}</ThemedText>
+            ) : (
+              <>
+                <ScoringRulesPicker rules={group} onChange={saveRules} disabled={savingRules} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  You can change this until the first round starts.
+                </ThemedText>
+              </>
+            )}
+          </Card>
 
-      <ThemedText type="mono" themeColor="textSecondary">
-        Players: {members.map((m) => m.display_name || 'Someone').join(', ')}
-      </ThemedText>
+          <RoundTimers group={group} onChanged={reload} />
+
+          <Button title="Delete league" variant="secondary" onPress={deleteLeague} loading={deleting} />
+        </>
+      ) : (
+        <>
+          <SectionLabel>House rules</SectionLabel>
+          <Card>
+            <ThemedText type="small">{describeRules(group)}</ThemedText>
+            <ThemedText type="small">{describeTimers(group)}</ThemedText>
+            {group.guessing_enabled && (
+              <ThemedText type="small">
+                Guess who picked each song while ranking. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
+              </ThemedText>
+            )}
+          </Card>
+          {!leagueOver && session && (
+            <SuggestCategory details={data} userId={session.user.id} onChanged={reload} />
+          )}
+          <Button title="Leave league" variant="secondary" onPress={leaveLeague} loading={removing !== null} />
+        </>
+      )}
     </Screen>
   );
 }
@@ -205,15 +326,14 @@ function RoundRecord({ round, onExpired }: { round: Round; onExpired: () => void
   );
 }
 
-function RoundTimers({
-  group,
-  isCreator,
-  onChanged,
-}: {
-  group: Group;
-  isCreator: boolean;
-  onChanged: () => void;
-}) {
+function describeTimers(group: Group): string {
+  if (group.submit_hours == null && group.vote_hours == null) return 'No timers. Each round waits for everyone.';
+  return `${group.submit_hours == null ? 'No limit' : describeHours(group.submit_hours)} to pick a song, ${
+    group.vote_hours == null ? 'no limit' : describeHours(group.vote_hours)
+  } to rank.`;
+}
+
+function RoundTimers({ group, onChanged }: { group: Group; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [submitHours, setSubmitHours] = useState(group.submit_hours);
   const [voteHours, setVoteHours] = useState(group.vote_hours);
@@ -237,13 +357,6 @@ function RoundTimers({
     onChanged();
   }
 
-  const summary =
-    group.submit_hours == null && group.vote_hours == null
-      ? 'No timers. Each round waits for everyone.'
-      : `${group.submit_hours == null ? 'No limit' : describeHours(group.submit_hours)} to pick a song, ${
-          group.vote_hours == null ? 'no limit' : describeHours(group.vote_hours)
-        } to rank.`;
-
   return (
     <Card>
       <ThemedText type="label" themeColor="textSecondary">
@@ -261,8 +374,8 @@ function RoundTimers({
         </>
       ) : (
         <>
-          <ThemedText type="small">{summary}</ThemedText>
-          {isCreator && <Button title="Change timers" variant="secondary" onPress={edit} />}
+          <ThemedText type="small">{describeTimers(group)}</ThemedText>
+          <Button title="Change timers" variant="secondary" onPress={edit} />
         </>
       )}
     </Card>

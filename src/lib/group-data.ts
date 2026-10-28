@@ -1,7 +1,7 @@
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { supabase } from '@/lib/supabase';
-import type { Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
+import type { CategorySuggestion, Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
 export type GroupDetails = {
   group: Group;
@@ -11,6 +11,7 @@ export type GroupDetails = {
   submissions: Submission[];
   rankings: Ranking[];
   guesses: Guess[];
+  suggestions: CategorySuggestion[];
 };
 
 export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
@@ -21,7 +22,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .eq('group_id', groupId)
       .order('round_number')
       .then(check<Round[]>);
-  const [group, memberRows, roundsAsLoaded] = await Promise.all([
+  const [group, memberRows, roundsAsLoaded, suggestions] = await Promise.all([
     supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
     supabase
       .from('group_members')
@@ -30,6 +31,12 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .order('joined_at')
       .then(check<{ profiles: Profile }[]>),
     fetchRounds(),
+    supabase
+      .from('category_suggestions')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at')
+      .then(check<CategorySuggestion[]>),
   ]);
 
   // Time is up: move rounds on now rather than waiting for the scheduled job.
@@ -58,6 +65,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
     submissions,
     rankings,
     guesses,
+    suggestions,
   };
 }
 
