@@ -4,10 +4,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
+import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
+import { DEFAULT_RULES } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 const STARTER_CATEGORIES = [
@@ -20,6 +22,7 @@ const STARTER_CATEGORIES = [
 export default function NewGroupScreen() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
+  const [rules, setRules] = useState(DEFAULT_RULES);
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
@@ -38,8 +41,16 @@ export default function NewGroupScreen() {
       group_name: name.trim(),
       categories: filledCategories,
     });
+    if (alertOnError('Could not create the group', error)) {
+      setCreating(false);
+      return;
+    }
+    if (rules.points_cap !== DEFAULT_RULES.points_cap || rules.downvotes !== DEFAULT_RULES.downvotes) {
+      const { error: rulesError } = await supabase.from('groups').update(rules).eq('id', data);
+      // The group exists either way; the creator can fix the rules on its page.
+      alertOnError('Your group was made, but its scoring rules were not saved', rulesError);
+    }
     setCreating(false);
-    if (alertOnError('Could not create the group', error)) return;
     router.replace(`/group/${data}`);
   }
 
@@ -78,6 +89,9 @@ export default function NewGroupScreen() {
         variant="secondary"
         onPress={() => setCategories((current) => [...current, ''])}
       />
+
+      <ThemedText type="smallBold">Scoring</ThemedText>
+      <ScoringRulesPicker rules={rules} onChange={setRules} />
 
       <Button
         title={`Create group with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
