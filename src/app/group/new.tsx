@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
@@ -8,6 +8,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
+import { GUESS_BONUS_POINTS } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 const STARTER_CATEGORIES = [
@@ -20,6 +21,7 @@ const STARTER_CATEGORIES = [
 export default function NewGroupScreen() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
+  const [guessing, setGuessing] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
@@ -38,8 +40,18 @@ export default function NewGroupScreen() {
       group_name: name.trim(),
       categories: filledCategories,
     });
+    if (alertOnError('Could not create the group', error)) {
+      setCreating(false);
+      return;
+    }
+    if (guessing) {
+      const { error: settingError } = await supabase
+        .from('groups')
+        .update({ guessing_enabled: true })
+        .eq('id', data);
+      alertOnError('Group created, but guessing could not be turned on', settingError);
+    }
     setCreating(false);
-    if (alertOnError('Could not create the group', error)) return;
     router.replace(`/group/${data}`);
   }
 
@@ -79,6 +91,16 @@ export default function NewGroupScreen() {
         onPress={() => setCategories((current) => [...current, ''])}
       />
 
+      <View style={[styles.row, styles.setting]}>
+        <View style={styles.field}>
+          <ThemedText type="smallBold">Guess who picked it</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Players guess who picked each song. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
+          </ThemedText>
+        </View>
+        <Switch value={guessing} onValueChange={setGuessing} accessibilityLabel="Guess who picked it" />
+      </View>
+
       <Button
         title={`Create group with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
         onPress={create}
@@ -105,6 +127,9 @@ const styles = StyleSheet.create({
   },
   remove: {
     paddingHorizontal: Spacing.three,
+  },
+  setting: {
+    marginTop: Spacing.three,
   },
   create: {
     marginTop: Spacing.three,

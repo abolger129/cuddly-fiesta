@@ -11,6 +11,8 @@ export type Group = {
   invite_code: string;
   created_by: string;
   total_rounds: number;
+  /** Players can guess who picked each song for bonus points. */
+  guessing_enabled: boolean;
   created_at: string;
 };
 
@@ -43,6 +45,14 @@ export type Ranking = {
   voter_id: string;
   submission_id: string;
   position: number;
+};
+
+/** A guess at who picked a song. */
+export type Guess = {
+  round_id: string;
+  guesser_id: string;
+  submission_id: string;
+  guessed_user_id: string;
 };
 
 export type RoundProgress = {

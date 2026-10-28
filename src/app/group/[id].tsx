@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -12,7 +12,7 @@ import { useLoader } from '@/hooks/use-loader';
 import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf } from '@/lib/group-data';
-import { leaderboard } from '@/lib/scoring';
+import { GUESS_BONUS_POINTS, leaderboard } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 
 export default function GroupScreen() {
@@ -21,6 +21,7 @@ export default function GroupScreen() {
   const load = useCallback(() => loadGroupDetails(id), [id]);
   const { data, error, loading, reload } = useLoader(load);
   const [starting, setStarting] = useState(false);
+  const [savingGuessing, setSavingGuessing] = useState(false);
 
   if (!data) {
     return (
@@ -30,9 +31,9 @@ export default function GroupScreen() {
     );
   }
 
-  const { group, members, rounds, submissions, rankings } = data;
+  const { group, members, rounds, submissions, rankings, guesses } = data;
   const isCreator = group.created_by === session?.user.id;
-  const standings = leaderboard(submissions, rankings, members.map((m) => m.id));
+  const standings = leaderboard(submissions, rankings, members.map((m) => m.id), guesses);
   const finishedCount = rounds.filter((r) => r.status === 'finished').length;
   const nextRound = rounds.find((r) => r.status === 'upcoming');
   const roundInProgress = rounds.some((r) => r.status === 'submitting' || r.status === 'voting');
@@ -43,6 +44,13 @@ export default function GroupScreen() {
     setStarting(false);
     if (alertOnError('Could not start the round', error)) return;
     router.push(`/round/${roundId}`);
+  }
+
+  async function setGuessing(enabled: boolean) {
+    setSavingGuessing(true);
+    const { error } = await supabase.from('groups').update({ guessing_enabled: enabled }).eq('id', group.id);
+    setSavingGuessing(false);
+    if (!alertOnError('Could not change the setting', error)) reload();
   }
 
   function shareInvite() {
@@ -64,6 +72,29 @@ export default function GroupScreen() {
         </ThemedText>
         <Button title="Share invite" variant="secondary" onPress={shareInvite} />
       </Card>
+
+      {(isCreator || group.guessing_enabled) && (
+        <Card>
+          <View style={styles.standing}>
+            <ThemedText type="smallBold" style={styles.grow}>
+              Guess who picked it
+            </ThemedText>
+            {isCreator && (
+              <Switch
+                value={group.guessing_enabled}
+                onValueChange={setGuessing}
+                disabled={savingGuessing}
+                accessibilityLabel="Guess who picked it"
+              />
+            )}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {group.guessing_enabled
+              ? `While ranking, guess who picked each song. Right guesses are worth ${GUESS_BONUS_POINTS} bonus points.`
+              : 'Turn on to let players guess who picked each song for bonus points.'}
+          </ThemedText>
+        </Card>
+      )}
 
       <ThemedText type="smallBold">
         {finishedCount === rounds.length ? 'Final standings' : 'Leaderboard'}
