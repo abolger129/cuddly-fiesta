@@ -4,9 +4,7 @@ What Apple checks that this app now covers, and the forms to fill in.
 
 ## One-time setup
 
-1. **Contact email.** Replace `CONTACT_EMAIL` in `site/index.html`, `site/privacy.html` and
-   `site/terms.html` with the address players and Apple should use. (Already done if this
-   was set before merging.)
+1. **Contact email** is thegauntletapp@gmail.com, on all three pages in `site/`.
 2. **Publish the website.** GitHub repo → **Settings → Pages → Build and deployment →
    Source: GitHub Actions**. Then **Actions → Publish website → Run workflow** (it also runs
    by itself whenever `site/` changes on `main`). The pages appear at:
