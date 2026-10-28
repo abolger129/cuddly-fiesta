@@ -49,7 +49,7 @@ export default function SignInScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.form}>
-          <ThemedText type="subtitle">Music League</ThemedText>
+          <ThemedText type="subtitle">The Gauntlet</ThemedText>
           <ThemedText themeColor="textSecondary">
             Pick songs with your friends, rank them, and find out who has the best taste.
           </ThemedText>
