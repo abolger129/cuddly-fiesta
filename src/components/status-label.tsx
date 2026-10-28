@@ -1,8 +1,4 @@
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Stamp } from '@/components/sleeve';
 import type { RoundStatus } from '@/lib/types';
 
 const LABELS: Record<RoundStatus, string> = {
@@ -12,22 +8,11 @@ const LABELS: Record<RoundStatus, string> = {
   finished: 'Finished',
 };
 
-export function StatusLabel({ status }: { status: RoundStatus }) {
-  const active = status === 'submitting' || status === 'voting';
-  return (
-    <ThemedView type={active ? 'backgroundSelected' : 'background'} style={styles.label}>
-      <ThemedText type="small" themeColor={active ? 'text' : 'textSecondary'}>
-        {LABELS[status]}
-      </ThemedText>
-    </ThemedView>
-  );
+export function statusText(status: RoundStatus): string {
+  return LABELS[status];
 }
 
-const styles = StyleSheet.create({
-  label: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-    borderRadius: Spacing.two,
-  },
-});
+/** A round's status as a stamp on its sleeve. */
+export function StatusLabel({ status, color }: { status: RoundStatus; color?: string }) {
+  return <Stamp text={LABELS[status]} color={color} />;
+}

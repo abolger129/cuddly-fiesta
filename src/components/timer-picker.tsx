@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   option: {
-    borderRadius: Spacing.three,
+    borderRadius: 6,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },

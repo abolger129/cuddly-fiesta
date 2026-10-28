@@ -1,13 +1,13 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, SleeveColors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
@@ -72,7 +72,15 @@ export default function SignInScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.form}>
-          <ThemedText type="subtitle">The Gauntlet</ThemedText>
+          <View style={styles.sleeves} accessible={false}>
+            {SleeveColors.slice(0, 3).map((color, i) => (
+              <View
+                key={color}
+                style={[styles.sleeve, { backgroundColor: color, transform: [{ rotate: `${(i - 1) * 6}deg` }] }]}
+              />
+            ))}
+          </View>
+          <ThemedText type="title">The Gauntlet</ThemedText>
           <ThemedText themeColor="textSecondary">
             Pick songs with your friends, rank them, and find out who has the best taste.
           </ThemedText>
@@ -152,7 +160,7 @@ export default function SignInScreen() {
 }
 
 // Matches the rounded corners of our own Button.
-const APPLE_BUTTON_RADIUS = Spacing.three;
+const APPLE_BUTTON_RADIUS = 6;
 
 const styles = StyleSheet.create({
   container: {
@@ -168,6 +176,16 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
+  },
+  sleeves: {
+    flexDirection: 'row',
+    marginBottom: Spacing.two,
+  },
+  sleeve: {
+    width: 64,
+    height: 64,
+    borderRadius: Spacing.one,
+    marginRight: -Spacing.four,
   },
   appleButton: {
     height: 48,

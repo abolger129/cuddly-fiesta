@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
+import { AlbumArt } from '@/components/album-art';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeadlineLabel } from '@/components/deadline-label';
@@ -10,14 +11,17 @@ import { NudgeButton } from '@/components/nudge-button';
 import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
-import { SongRow } from '@/components/song-row';
+import { SectionLabel } from '@/components/section-label';
+import { Sleeve } from '@/components/sleeve';
+import { SongRow, TrackNumber } from '@/components/song-row';
 import { SongSearch } from '@/components/song-search';
 import { StatusLabel } from '@/components/status-label';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Fonts, roundColor, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
@@ -25,6 +29,7 @@ import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
 import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
 import { spotifyTrackUrl, type SpotifyTrack } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
+import { trackLabel } from '@/lib/track-labels';
 import type { Guess, Profile, RoundSong, SongComment } from '@/lib/types';
 
 export default function RoundScreen() {
@@ -91,11 +96,12 @@ function RoundHeader({ details, onExpired }: { details: RoundDetails; onExpired:
   const { round, group } = details;
   return (
     <View style={styles.header}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {group.name} · Round {round.round_number} of {group.total_rounds}
-      </ThemedText>
-      <ThemedText type="subtitle">{round.category}</ThemedText>
-      <StatusLabel status={round.status} />
+      <Sleeve
+        color={roundColor(round.round_number)}
+        kicker={`Vol. ${round.round_number} of ${group.total_rounds} · ${group.name}`}
+        stamp={<StatusLabel status={round.status} />}
+        title={round.category}
+      />
       <DeadlineLabel round={round} onExpired={onExpired} />
     </View>
   );
@@ -154,13 +160,14 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
     <>
       {mySubmission ? (
         <Card>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="label" themeColor="textSecondary">
             Your pick
           </ThemedText>
           <SongRow
             trackName={mySubmission.track_name}
             artistName={mySubmission.artist_name}
             albumArtUrl={mySubmission.album_art_url}
+            artSize={72}
           />
           <Button title="Change my pick" variant="secondary" onPress={changePick} loading={busy} />
         </Card>
@@ -335,7 +342,7 @@ function Voting({
             {group.guessing_enabled && (
               <>
                 <View style={styles.header}>
-                  <ThemedText type="smallBold">Who picked it?</ThemedText>
+                  <SectionLabel>Who picked it?</SectionLabel>
                   <ThemedText type="small" themeColor="textSecondary">
                     Guess who picked each song. Every right guess is worth {GUESS_BONUS_POINTS} bonus
                     points, revealed when the round ends.
@@ -343,10 +350,12 @@ function Voting({
                 </View>
                 {order.map((song) => (
                   <Card key={song.id}>
-                    <ThemedText type="smallBold">{song.track_name}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {song.artist_name}
-                    </ThemedText>
+                    <SongRow
+                      trackName={song.track_name}
+                      artistName={song.artist_name}
+                      albumArtUrl={song.album_art_url}
+                      artSize={40}
+                    />
                     <GuessPicker
                       players={otherPlayers}
                       selected={guesses.get(song.id)}
@@ -400,6 +409,8 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
   const { group, submissions, rankings, guesses, members, comments } = details;
   const points = scoreRound(rankings, group);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
+  const winner = results[0];
+  const theme = useTheme();
   const guessing = group.guessing_enabled;
   const owner = new Map(submissions.map((s) => [s.id, s.user_id]));
   const isRight = (g: Guess) => owner.get(g.submission_id) === g.guessed_user_id;
@@ -414,33 +425,65 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
 
   return (
     <>
+      {winner && (
+        <View style={styles.hero}>
+          <AlbumArt url={winner.album_art_url} size={112} seed={`${winner.track_name}·${winner.artist_name}`} raised />
+          <View style={styles.heroText}>
+            <ThemedText type="label" themeColor="textSecondary">
+              Top of the round
+            </ThemedText>
+            <ThemedText type="subtitle" style={styles.heroTitle} numberOfLines={3}>
+              {winner.track_name}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              {winner.artist_name} · picked by {nameOf(members, winner.user_id)}
+            </ThemedText>
+          </View>
+        </View>
+      )}
       <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
-      <ThemedText type="smallBold">The reveal</ThemedText>
-      {results.map((s, i) => (
-        <Card
-          key={s.id}
-          onPress={s.spotify_track_id ? () => Linking.openURL(spotifyTrackUrl(s.spotify_track_id!)) : undefined}>
-          <SongRow
-            trackName={s.track_name}
-            artistName={s.artist_name}
-            albumArtUrl={s.album_art_url}
-            leading={
-              <ThemedText type="smallBold" style={styles.place}>
-                {i + 1}
-              </ThemedText>
-            }
-            trailing={<ThemedText type="smallBold">{points.get(s.id) ?? 0} pts</ThemedText>}
-          />
-          <ThemedText type="small" themeColor="textSecondary">
-            Picked by {nameOf(members, s.user_id)}
-          </ThemedText>
-          {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
-          <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
-        </Card>
-      ))}
+      <SectionLabel>The credits</SectionLabel>
+      <View>
+        {results.map((s, i) => (
+          <Pressable
+            key={s.id}
+            disabled={!s.spotify_track_id}
+            onPress={() => s.spotify_track_id && Linking.openURL(spotifyTrackUrl(s.spotify_track_id))}
+            style={({ pressed }) => [styles.credit, { borderBottomColor: theme.rule }, pressed && styles.pressed]}>
+            <SongRow
+              trackName={s.track_name}
+              artistName={s.artist_name}
+              albumArtUrl={s.album_art_url}
+              leading={<TrackNumber label={trackLabel(i, results.length)} />}
+              credit={
+                <ThemedText type="mono" themeColor="textSecondary" numberOfLines={1}>
+                  picked by{' '}
+                  <ThemedText type="mono" style={styles.creditName}>
+                    {nameOf(members, s.user_id)}
+                  </ThemedText>
+                </ThemedText>
+              }
+              trailing={
+                <View style={styles.points}>
+                  <ThemedText type="subtitle" style={styles.pointsNumber}>
+                    {points.get(s.id) ?? 0}
+                  </ThemedText>
+                  <ThemedText type="mono" themeColor="textSecondary">
+                    pts
+                  </ThemedText>
+                </View>
+              }
+            />
+            <View style={styles.creditNotes}>
+              {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
+              <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
+            </View>
+          </Pressable>
+        ))}
+      </View>
       {guessing && (
         <>
-          <ThemedText type="smallBold">Guess bonuses</ThemedText>
+          <SectionLabel>Guess bonuses</SectionLabel>
           <Card>
             {guessers.map((g) => (
               <View key={g.id} style={styles.bonusRow}>
@@ -517,7 +560,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    gap: Spacing.two,
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.three,
+  },
+  heroText: {
+    flex: 1,
     gap: Spacing.one,
+  },
+  heroTitle: {
+    fontSize: 24,
+    lineHeight: 26,
+  },
+  credit: {
+    paddingVertical: Spacing.three,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+  },
+  creditName: {
+    fontFamily: Fonts.monoBold,
+  },
+  creditNotes: {
+    paddingLeft: 24 + Spacing.three,
+    gap: Spacing.one,
+  },
+  points: {
+    alignItems: 'flex-end',
+  },
+  pointsNumber: {
+    fontSize: 24,
+    lineHeight: 26,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   votingHeader: {
     gap: Spacing.three,
@@ -526,10 +604,6 @@ const styles = StyleSheet.create({
   votingFooter: {
     gap: Spacing.three,
     paddingTop: Spacing.two,
-  },
-  place: {
-    width: 20,
-    textAlign: 'center',
   },
   bonusRow: {
     flexDirection: 'row',

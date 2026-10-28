@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { StyleProp, TextStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useNow } from '@/hooks/use-now';
@@ -11,10 +12,11 @@ type DeadlineLabelProps = {
   onExpired?: () => void;
   /** Leave out the date and the explanation, for lists. */
   compact?: boolean;
+  style?: StyleProp<TextStyle>;
 };
 
 /** How long is left to pick or rank, for rounds with a timer. */
-export function DeadlineLabel({ round, onExpired, compact }: DeadlineLabelProps) {
+export function DeadlineLabel({ round, onExpired, compact, style }: DeadlineLabelProps) {
   const now = useNow();
   const deadline = activeDeadline(round);
   const expired = deadline != null && deadline <= now;
@@ -41,7 +43,8 @@ export function DeadlineLabel({ round, onExpired, compact }: DeadlineLabelProps)
   }
 
   return (
-    <ThemedText type={compact ? 'small' : 'smallBold'} themeColor={compact ? 'textSecondary' : 'text'}>
+    <ThemedText type={compact ? 'small' : 'smallBold'} themeColor={compact ? 'textSecondary' : 'text'}
+      style={style}>
       {text}
     </ThemedText>
   );

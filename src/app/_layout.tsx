@@ -1,3 +1,11 @@
+import {
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import { IBMPlexMono_400Regular, IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
+import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,16 +14,54 @@ import { Platform, StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { Colors, Fonts } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
+const navigationThemes = {
+  light: {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: Colors.light.text,
+      background: Colors.light.background,
+      card: Colors.light.background,
+      text: Colors.light.text,
+      border: Colors.light.rule,
+    },
+  },
+  dark: {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      primary: Colors.dark.text,
+      background: Colors.dark.background,
+      card: Colors.dark.background,
+      text: Colors.dark.text,
+      border: Colors.dark.rule,
+    },
+  },
+};
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded, fontError] = useFonts({
+    BricolageGrotesque_400Regular,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_600SemiBold,
+  });
+
+  // Keep the splash screen up until the fonts are ready. If they fail, fall back to system fonts.
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={navigationThemes[colorScheme === 'dark' ? 'dark' : 'light']}>
         <AuthProvider>
           <RootNavigator />
         </AuthProvider>
@@ -38,7 +84,12 @@ function RootNavigator() {
 
   return (
     <>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShadowVisible: false,
+          headerTitleStyle: { fontFamily: Fonts.bold },
+          headerLargeTitleStyle: { fontFamily: Fonts.display },
+        }}>
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="index" options={{ title: 'The Gauntlet' }} />
           <Stack.Screen name="profile" options={{ title: 'Settings', presentation: 'modal' }} />
