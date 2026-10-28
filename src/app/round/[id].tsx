@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AlbumArt } from '@/components/album-art';
@@ -15,6 +15,7 @@ import { SectionLabel } from '@/components/section-label';
 import { Sleeve } from '@/components/sleeve';
 import { SongRow, TrackNumber } from '@/components/song-row';
 import { SongSearch } from '@/components/song-search';
+import { YoutubeTag } from '@/components/youtube-tag';
 import { StatusLabel } from '@/components/status-label';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -27,10 +28,11 @@ import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
 import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
-import { spotifyTrackUrl, type SpotifyTrack } from '@/lib/spotify';
+import { songUrl } from '@/lib/song-links';
 import { supabase } from '@/lib/supabase';
 import { trackLabel } from '@/lib/track-labels';
-import type { Guess, Profile, RoundSong, SongComment } from '@/lib/types';
+import type { Guess, Profile, RoundSong, SongComment, Submission } from '@/lib/types';
+import { lookUpYoutubeVideo, youtubeThumbnailUrl, youtubeVideoId, youtubeWatchUrl } from '@/lib/youtube';
 
 export default function RoundScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -129,12 +131,10 @@ function Upcoming({ details, isCreator, onChanged }: StageProps) {
 
 function Submitting({ details, isCreator, onChanged }: StageProps) {
   const { round, progress, mySubmission } = details;
-  const [typingIn, setTypingIn] = useState(false);
-  const [trackName, setTrackName] = useState('');
-  const [artistName, setArtistName] = useState('');
+  const [notOnSpotify, setNotOnSpotify] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function submit(song: Omit<SpotifyTrack, 'spotify_track_id'> & { spotify_track_id: string | null }) {
+  async function submit(song: NewSong) {
     setBusy(true);
     const { error } = await supabase.from('submissions').insert({ round_id: round.id, ...song });
     setBusy(false);
@@ -168,41 +168,26 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
             artistName={mySubmission.artist_name}
             albumArtUrl={mySubmission.album_art_url}
             artSize={72}
+            credit={mySubmission.youtube_url ? <YoutubeTag /> : undefined}
           />
           <Button title="Change my pick" variant="secondary" onPress={changePick} loading={busy} />
         </Card>
       ) : (
         <Card>
           <ThemedText type="smallBold">Pick a song that fits</ThemedText>
-          {typingIn ? (
-            <>
-              <TextField value={trackName} onChangeText={setTrackName} placeholder="Song title" />
-              <TextField value={artistName} onChangeText={setArtistName} placeholder="Artist" />
-              <ThemedText type="small" themeColor="textSecondary">
-                Typed-in songs can&apos;t go on the Spotify playlist.
-              </ThemedText>
-              <Button
-                title="Submit song"
-                onPress={() =>
-                  submit({
-                    spotify_track_id: null,
-                    track_name: trackName.trim(),
-                    artist_name: artistName.trim(),
-                    album_art_url: null,
-                  })
-                }
-                loading={busy}
-                disabled={!trackName.trim() || !artistName.trim()}
-              />
-              <Button title="Search Spotify instead" variant="secondary" onPress={() => setTypingIn(false)} />
-            </>
+          {notOnSpotify ? (
+            <NotOnSpotifyForm
+              onSubmit={submit}
+              busy={busy}
+              onCancel={() => setNotOnSpotify(false)}
+            />
           ) : (
             <>
-              <SongSearch onPick={submit} disabled={busy} />
+              <SongSearch onPick={(track) => submit({ ...track, youtube_url: null })} disabled={busy} />
               <Button
-                title="Can't find it? Type it in"
+                title="Not on Spotify? Add a YouTube link"
                 variant="secondary"
-                onPress={() => setTypingIn(true)}
+                onPress={() => setNotOnSpotify(true)}
               />
             </>
           )}
@@ -226,6 +211,80 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
           loading={busy}
         />
       )}
+    </>
+  );
+}
+
+type NewSong = Omit<Submission, 'id' | 'round_id' | 'user_id'>;
+
+/**
+ * For songs that aren't on Spotify: paste a YouTube link (or leave it blank)
+ * and say what the song is. The link fills in the title and artist when it can.
+ */
+function NotOnSpotifyForm({
+  onSubmit,
+  busy,
+  onCancel,
+}: {
+  onSubmit: (song: NewSong) => void;
+  busy: boolean;
+  onCancel: () => void;
+}) {
+  const [link, setLink] = useState('');
+  const [trackName, setTrackName] = useState('');
+  const [artistName, setArtistName] = useState('');
+  const videoId = youtubeVideoId(link);
+  const badLink = link.trim() !== '' && !videoId;
+
+  useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+    lookUpYoutubeVideo(videoId).then((video) => {
+      if (cancelled || !video) return;
+      setTrackName((current) => current || video.title);
+      setArtistName((current) => current || video.channel);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
+
+  return (
+    <>
+      <TextField
+        value={link}
+        onChangeText={setLink}
+        placeholder="YouTube link"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      {badLink && (
+        <ThemedText type="small" themeColor="danger">
+          That doesn&apos;t look like a YouTube video link.
+        </ThemedText>
+      )}
+      <TextField value={trackName} onChangeText={setTrackName} placeholder="Song title" />
+      <TextField value={artistName} onChangeText={setArtistName} placeholder="Artist" />
+      <ThemedText type="small" themeColor="textSecondary">
+        Songs that aren&apos;t on Spotify can&apos;t go on the playlist. Everyone gets a button to play
+        it on YouTube instead, and nobody sees who picked it until the round ends.
+      </ThemedText>
+      <Button
+        title="Submit song"
+        onPress={() =>
+          onSubmit({
+            spotify_track_id: null,
+            youtube_url: videoId ? youtubeWatchUrl(videoId) : null,
+            track_name: trackName.trim(),
+            artist_name: artistName.trim(),
+            album_art_url: videoId ? youtubeThumbnailUrl(videoId) : null,
+          })
+        }
+        loading={busy}
+        disabled={badLink || !trackName.trim() || !artistName.trim()}
+      />
+      <Button title="Search Spotify instead" variant="secondary" onPress={onCancel} />
     </>
   );
 }
@@ -329,7 +388,7 @@ function Voting({
             <ThemedText themeColor="textSecondary">
               {progress.has_ranked
                 ? `Your ranking is saved. You can still change it until everyone has voted${round.vote_deadline ? ' or time runs out' : ''}.`
-                : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it on Spotify.'}
+                : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it.'}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {describeRules(details.group)} Comments are anonymous until the round ends, then
@@ -444,42 +503,48 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
       <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
       <SectionLabel>The credits</SectionLabel>
       <View>
-        {results.map((s, i) => (
-          <Pressable
-            key={s.id}
-            disabled={!s.spotify_track_id}
-            onPress={() => s.spotify_track_id && Linking.openURL(spotifyTrackUrl(s.spotify_track_id))}
-            style={({ pressed }) => [styles.credit, { borderBottomColor: theme.rule }, pressed && styles.pressed]}>
-            <SongRow
-              trackName={s.track_name}
-              artistName={s.artist_name}
-              albumArtUrl={s.album_art_url}
-              leading={<TrackNumber label={trackLabel(i, results.length)} />}
-              credit={
-                <ThemedText type="mono" themeColor="textSecondary" numberOfLines={1}>
-                  picked by{' '}
-                  <ThemedText type="mono" style={styles.creditName}>
-                    {nameOf(members, s.user_id)}
-                  </ThemedText>
-                </ThemedText>
-              }
-              trailing={
-                <View style={styles.points}>
-                  <ThemedText type="subtitle" style={styles.pointsNumber}>
-                    {points.get(s.id) ?? 0}
-                  </ThemedText>
-                  <ThemedText type="mono" themeColor="textSecondary">
-                    pts
-                  </ThemedText>
-                </View>
-              }
-            />
-            <View style={styles.creditNotes}>
-              {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
-              <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
-            </View>
-          </Pressable>
-        ))}
+        {results.map((s, i) => {
+          const url = songUrl(s);
+          return (
+            <Pressable
+              key={s.id}
+              disabled={!url}
+              onPress={() => url && Linking.openURL(url)}
+              style={({ pressed }) => [styles.credit, { borderBottomColor: theme.rule }, pressed && styles.pressed]}>
+              <SongRow
+                trackName={s.track_name}
+                artistName={s.artist_name}
+                albumArtUrl={s.album_art_url}
+                leading={<TrackNumber label={trackLabel(i, results.length)} />}
+                credit={
+                  <>
+                    {s.youtube_url && <YoutubeTag />}
+                    <ThemedText type="mono" themeColor="textSecondary" numberOfLines={1}>
+                      picked by{' '}
+                      <ThemedText type="mono" style={styles.creditName}>
+                        {nameOf(members, s.user_id)}
+                      </ThemedText>
+                    </ThemedText>
+                  </>
+                }
+                trailing={
+                  <View style={styles.points}>
+                    <ThemedText type="subtitle" style={styles.pointsNumber}>
+                      {points.get(s.id) ?? 0}
+                    </ThemedText>
+                    <ThemedText type="mono" themeColor="textSecondary">
+                      pts
+                    </ThemedText>
+                  </View>
+                }
+              />
+              <View style={styles.creditNotes}>
+                {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
+                <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
+              </View>
+            </Pressable>
+          );
+        })}
       </View>
       {guessing && (
         <>

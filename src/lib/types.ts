@@ -42,6 +42,8 @@ export type Submission = {
   round_id: string;
   user_id: string;
   spotify_track_id: string | null;
+  /** Set only for songs that aren't on Spotify. */
+  youtube_url: string | null;
   track_name: string;
   artist_name: string;
   album_art_url: string | null;
