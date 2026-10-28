@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeadlineLabel } from '@/components/deadline-label';
 import { GuessPicker } from '@/components/guess-picker';
+import { NudgeButton } from '@/components/nudge-button';
 import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
@@ -206,6 +207,10 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         starts once everyone is in{round.submit_deadline ? ' or time runs out' : ''}.
       </ThemedText>
 
+      {progress.member_count - progress.submitted_count - (progress.has_submitted ? 0 : 1) > 0 && (
+        <NudgeButton round={round} onChanged={onChanged} />
+      )}
+
       {isCreator && progress.submitted_count >= 2 && progress.submitted_count < progress.member_count && (
         <Button
           title="Start ranking without the rest"
@@ -373,6 +378,9 @@ function Voting({
             <ThemedText type="small" themeColor="textSecondary">
               {progress.ranked_count} of {progress.member_count} players have ranked.
             </ThemedText>
+            {progress.member_count - progress.ranked_count - (progress.has_ranked ? 0 : 1) > 0 && (
+              <NudgeButton round={round} onChanged={onChanged} />
+            )}
             {isCreator && progress.ranked_count < progress.member_count && (
               <Button
                 title="End voting now"
