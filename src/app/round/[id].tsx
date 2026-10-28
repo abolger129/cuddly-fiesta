@@ -5,6 +5,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeadlineLabel } from '@/components/deadline-label';
+import { GuessPicker } from '@/components/guess-picker';
 import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
@@ -20,10 +21,10 @@ import { useAuth } from '@/lib/auth';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
-import { describeRules, pointsForPosition, scoreRound } from '@/lib/scoring';
+import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
 import { spotifyTrackUrl, type SpotifyTrack } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
-import type { Profile, RoundSong, SongComment } from '@/lib/types';
+import type { Guess, Profile, RoundSong, SongComment } from '@/lib/types';
 
 export default function RoundScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,8 +52,9 @@ export default function RoundScreen() {
         {title}
         <Voting
           // Start fresh from the saved ranking whenever it changes.
-          key={data.rankings.map((r) => r.submission_id).join()}
+          key={[...data.rankings, ...data.guesses].map((r) => r.submission_id).join()}
           details={data}
+          userId={userId}
           isCreator={isCreator}
           header={header}
           onChanged={reload}
@@ -72,7 +74,7 @@ export default function RoundScreen() {
         <Submitting details={data} isCreator={isCreator} onChanged={reload} />
       )}
       {data.round.status === 'finished' && (
-        <Results details={data} isCreator={isCreator} onChanged={reload} />
+        <Results details={data} userId={userId} isCreator={isCreator} onChanged={reload} />
       )}
     </Screen>
   );
@@ -235,21 +237,46 @@ function initialOrder({ songs, rankings }: RoundDetails): RoundSong[] {
 
 function Voting({
   details,
+  userId,
   isCreator,
   onChanged,
   header,
-}: StageProps & { header: ReactElement }) {
-  const { round, progress } = details;
+}: StageProps & { userId: string; header: ReactElement }) {
+  const { round, group, progress, members } = details;
   const [order, setOrder] = useState(() => initialOrder(details));
+  const [guesses, setGuesses] = useState(
+    () => new Map(details.guesses.map((g) => [g.submission_id, g.guessed_user_id]))
+  );
   const [comments, setComments] = useState<Record<string, string>>(() =>
     Object.fromEntries(details.comments.map((c) => [c.submission_id, c.body]))
   );
   const [busy, setBusy] = useState(false);
   const mySong = details.songs.find((s) => s.is_mine);
+  const otherPlayers = members.filter((m) => m.id !== userId);
+
+  function setGuess(submissionId: string, guessedUserId: string | undefined) {
+    setGuesses((current) => {
+      const next = new Map(current);
+      if (guessedUserId) next.set(submissionId, guessedUserId);
+      else next.delete(submissionId);
+      return next;
+    });
+  }
 
   async function save() {
     setBusy(true);
-    // Comments go first: saving the last ranking can finish the round, which closes comments.
+    // Guesses and comments go first: saving the last ranking finishes the round, which closes both.
+    if (group.guessing_enabled) {
+      const { error } = await supabase.rpc('save_guesses', {
+        rid: round.id,
+        submission_ids: [...guesses.keys()],
+        guessed_user_ids: [...guesses.values()],
+      });
+      if (alertOnError('Could not save your guesses', error)) {
+        setBusy(false);
+        return;
+      }
+    }
     const commented = order.filter((s) => comments[s.id]?.trim());
     const { error: commentError } = await supabase.rpc('save_song_comments', {
       rid: round.id,
@@ -300,8 +327,40 @@ function Voting({
         }
         footer={
           <View style={styles.votingFooter}>
+            {group.guessing_enabled && (
+              <>
+                <View style={styles.header}>
+                  <ThemedText type="smallBold">Who picked it?</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Guess who picked each song. Every right guess is worth {GUESS_BONUS_POINTS} bonus
+                    points, revealed when the round ends.
+                  </ThemedText>
+                </View>
+                {order.map((song) => (
+                  <Card key={song.id}>
+                    <ThemedText type="smallBold">{song.track_name}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {song.artist_name}
+                    </ThemedText>
+                    <GuessPicker
+                      players={otherPlayers}
+                      selected={guesses.get(song.id)}
+                      onSelect={(guessed) => setGuess(song.id, guessed)}
+                    />
+                  </Card>
+                ))}
+              </>
+            )}
             <Button
-              title={progress.has_ranked ? 'Update my ranking' : 'Save my ranking'}
+              title={
+                progress.has_ranked
+                  ? group.guessing_enabled
+                    ? 'Update my ranking and guesses'
+                    : 'Update my ranking'
+                  : group.guessing_enabled
+                    ? 'Save my ranking and guesses'
+                    : 'Save my ranking'
+              }
               onPress={save}
               loading={busy}
               disabled={order.length === 0}
@@ -329,14 +388,26 @@ function Voting({
   );
 }
 
-function Results({ details, isCreator, onChanged }: StageProps) {
-  const { submissions, rankings, members, comments, group } = details;
+function Results({ details, userId, isCreator, onChanged }: StageProps & { userId: string }) {
+  const { group, submissions, rankings, guesses, members, comments } = details;
   const points = scoreRound(rankings, group);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
+  const guessing = group.guessing_enabled;
+  const owner = new Map(submissions.map((s) => [s.id, s.user_id]));
+  const isRight = (g: Guess) => owner.get(g.submission_id) === g.guessed_user_id;
+  const guessPoints = scoreGuesses(guesses, submissions);
+  const guessers = [...new Set(guesses.map((g) => g.guesser_id))]
+    .map((id) => ({
+      id,
+      right: guesses.filter((g) => g.guesser_id === id && isRight(g)).length,
+      total: guesses.filter((g) => g.guesser_id === id).length,
+    }))
+    .sort((a, b) => b.right - a.right);
 
   return (
     <>
       <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
+      <ThemedText type="smallBold">The reveal</ThemedText>
       {results.map((s, i) => (
         <Card
           key={s.id}
@@ -355,9 +426,66 @@ function Results({ details, isCreator, onChanged }: StageProps) {
           <ThemedText type="small" themeColor="textSecondary">
             Picked by {nameOf(members, s.user_id)}
           </ThemedText>
+          {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
           <Comments comments={comments.filter((c) => c.submission_id === s.id)} members={members} />
         </Card>
       ))}
+      {guessing && (
+        <>
+          <ThemedText type="smallBold">Guess bonuses</ThemedText>
+          <Card>
+            {guessers.map((g) => (
+              <View key={g.id} style={styles.bonusRow}>
+                <ThemedText type="small" style={styles.grow}>
+                  {nameOf(members, g.id)}: {g.right} of {g.total} right
+                </ThemedText>
+                <ThemedText type="smallBold">+{guessPoints.get(g.id) ?? 0} pts</ThemedText>
+              </View>
+            ))}
+            {guessers.length === 0 && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Nobody guessed this round.
+              </ThemedText>
+            )}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+/** Under a revealed song: your guess, and who guessed it right. */
+function GuessReveal({
+  submissionId,
+  guesses,
+  details,
+  userId,
+}: {
+  submissionId: string;
+  guesses: Guess[];
+  details: RoundDetails;
+  userId: string;
+}) {
+  const { submissions, members } = details;
+  const pickedBy = submissions.find((s) => s.id === submissionId)?.user_id;
+  const forSong = guesses.filter((g) => g.submission_id === submissionId);
+  const mine = forSong.find((g) => g.guesser_id === userId);
+  const rightNames = forSong
+    .filter((g) => g.guessed_user_id === pickedBy)
+    .map((g) => nameOf(members, g.guesser_id));
+
+  return (
+    <>
+      {mine && (
+        <ThemedText type="small">
+          {mine.guessed_user_id === pickedBy
+            ? `You guessed right! +${GUESS_BONUS_POINTS} pts`
+            : `You guessed ${nameOf(members, mine.guessed_user_id)}`}
+        </ThemedText>
+      )}
+      <ThemedText type="small" themeColor="textSecondary">
+        {rightNames.length ? `Guessed right: ${rightNames.join(', ')}` : 'Nobody guessed it'}
+      </ThemedText>
     </>
   );
 }
@@ -394,6 +522,14 @@ const styles = StyleSheet.create({
   place: {
     width: 20,
     textAlign: 'center',
+  },
+  bonusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  grow: {
+    flex: 1,
   },
   comments: {
     gap: Spacing.one,

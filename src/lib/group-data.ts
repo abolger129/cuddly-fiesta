@@ -1,7 +1,7 @@
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { supabase } from '@/lib/supabase';
-import type { Group, Profile, Ranking, Round, Submission } from '@/lib/types';
+import type { Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
 export type GroupDetails = {
   group: Group;
@@ -10,6 +10,7 @@ export type GroupDetails = {
   /** Only rounds that are finished: earlier ones are hidden by the database. */
   submissions: Submission[];
   rankings: Ranking[];
+  guesses: Guess[];
 };
 
 export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
@@ -40,12 +41,15 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
   }
 
   const finishedRoundIds = rounds.filter((r) => r.status === 'finished').map((r) => r.id);
-  const [submissions, rankings] = finishedRoundIds.length
+  const [submissions, rankings, guesses] = finishedRoundIds.length
     ? await Promise.all([
         supabase.from('submissions').select('*').in('round_id', finishedRoundIds).then(check<Submission[]>),
         supabase.from('rankings').select('*').in('round_id', finishedRoundIds).then(check<Ranking[]>),
+        group.guessing_enabled
+          ? supabase.from('guesses').select('*').in('round_id', finishedRoundIds).then(check<Guess[]>)
+          : Promise.resolve([]),
       ])
-    : [[], []];
+    : [[], [], []];
 
   return {
     group,
@@ -53,6 +57,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
     rounds,
     submissions,
     rankings,
+    guesses,
   };
 }
 

@@ -1,7 +1,7 @@
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { supabase } from '@/lib/supabase';
-import type { Group, Profile, Ranking, Round, RoundProgress, RoundSong, SongComment, Submission } from '@/lib/types';
+import type { Group, Guess, Profile, Ranking, Round, RoundProgress, RoundSong, SongComment, Submission } from '@/lib/types';
 
 export type RoundDetails = {
   round: Round;
@@ -14,6 +14,8 @@ export type RoundDetails = {
   rankings: Ranking[];
   /** Who picked what, once the round is finished. */
   submissions: Submission[];
+  /** Your saved guesses (while voting) or everyone's (once finished). */
+  guesses: Guess[];
   members: Profile[];
   /** Your own comments (while voting) or everyone's (once finished). */
   comments: SongComment[];
@@ -29,7 +31,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     round = await fetchRound();
   }
 
-  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, comments] =
+  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments] =
     await Promise.all([
       supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
@@ -50,6 +52,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         .select('profiles (id, display_name)')
         .eq('group_id', round.group_id)
         .then(check<{ profiles: Profile }[]>),
+      supabase.from('guesses').select('*').eq('round_id', roundId).then(check<Guess[]>),
       supabase
         .from('song_comments')
         .select('round_id, submission_id, voter_id, body')
@@ -66,6 +69,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     songs,
     rankings,
     submissions,
+    guesses,
     members: memberRows.map((m) => m.profiles),
     comments,
   };
