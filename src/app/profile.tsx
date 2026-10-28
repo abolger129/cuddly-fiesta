@@ -10,8 +10,11 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
+import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { unregisterPushNotifications } from '@/lib/notifications';
+import { unblockPlayer } from '@/lib/safety';
 import { disconnectSpotify, isSpotifyConnected } from '@/lib/spotify';
 import { supabase } from '@/lib/supabase';
 
@@ -22,6 +25,8 @@ export default function ProfileScreen() {
   const [doodle, setDoodle] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     isSpotifyConnected().then(setSpotifyConnected);
@@ -51,6 +56,42 @@ export default function ProfileScreen() {
         .then(({ data }) => setDoodle(data?.avatar_doodle ?? null));
     }, [userId])
   );
+
+  const loadBlocked = useCallback(() => {
+    supabase
+      .from('blocks')
+      .select('blocked_id, profiles!blocks_blocked_id_fkey (display_name)')
+      .then(({ data }) =>
+        setBlocked(
+          (data ?? []).map((b) => {
+            // One profile per block, though the generated types can't tell.
+            const profile = b.profiles as unknown as { display_name: string } | null;
+            return { id: b.blocked_id, name: profile?.display_name || 'Someone' };
+          })
+        )
+      );
+  }, []);
+
+  useEffect(loadBlocked, [loadBlocked]);
+
+  async function deleteAccount() {
+    const ok = await confirmDestructive(
+      'Delete your account?',
+      "This deletes your profile, avatar, songs, rankings, guesses and comments. Leagues you host pass to another player, or are deleted if you're the only one in them. It can't be undone.",
+      'Delete account',
+    );
+    if (!ok) return;
+    setDeleting(true);
+    await unregisterPushNotifications();
+    const { error } = await supabase.rpc('delete_my_account');
+    if (alertOnError('Could not delete your account', error)) {
+      setDeleting(false);
+      return;
+    }
+    await disconnectSpotify();
+    // The account is gone, so only clear the session on this device.
+    await supabase.auth.signOut({ scope: 'local' });
+  }
 
   async function save() {
     if (!userId) return;
@@ -103,6 +144,45 @@ export default function ProfileScreen() {
           await supabase.auth.signOut();
         }}
       />
+
+      {blocked.length > 0 && (
+        <>
+          <SectionLabel>Blocked players</SectionLabel>
+          {blocked.map((b) => (
+            <View key={b.id} style={styles.blockedRow}>
+              <ThemedText type="small" style={styles.grow}>
+                {b.name}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Unblock ${b.name}`}
+                onPress={async () => {
+                  if (await unblockPlayer(b.id)) loadBlocked();
+                }}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  Unblock
+                </ThemedText>
+              </Pressable>
+            </View>
+          ))}
+        </>
+      )}
+
+      <SectionLabel>About</SectionLabel>
+      <View style={styles.links}>
+        <Pressable accessibilityRole="link" onPress={openPrivacyPolicy}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.link}>
+            Privacy policy
+          </ThemedText>
+        </Pressable>
+        <Pressable accessibilityRole="link" onPress={openTerms}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.link}>
+            Terms of use
+          </ThemedText>
+        </Pressable>
+      </View>
+      <Button title="Delete account" variant="secondary" onPress={deleteAccount} loading={deleting} />
     </Screen>
   );
 }
@@ -115,6 +195,18 @@ const styles = StyleSheet.create({
   },
   grow: {
     flex: 1,
+  },
+  blockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  links: {
+    flexDirection: 'row',
+    gap: Spacing.four,
+  },
+  link: {
+    textDecorationLine: 'underline',
   },
   pressed: {
     opacity: 0.7,

@@ -9,6 +9,7 @@ import { Linework, ScribbleUnderline } from '@/components/doodles';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, MaxContentWidth, OnBrand, Spacing } from '@/constants/theme';
+import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
 
@@ -195,6 +196,18 @@ export default function SignInScreen() {
                 </Pressable>
               </>
             )}
+            {/* Apple asks that players agree to the terms, including no abusive content, before joining. */}
+            <ThemedText type="small" style={[styles.onBrand, styles.or, styles.legal]}>
+              By continuing you agree to the{' '}
+              <ThemedText type="small" style={[styles.onBrand, styles.link]} onPress={openTerms}>
+                Terms of use
+              </ThemedText>{' '}
+              and{' '}
+              <ThemedText type="small" style={[styles.onBrand, styles.link]} onPress={openPrivacyPolicy}>
+                Privacy policy
+              </ThemedText>
+              .
+            </ThemedText>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -241,6 +254,10 @@ const styles = StyleSheet.create({
   },
   or: {
     textAlign: 'center',
+  },
+  legal: {
+    opacity: 0.8,
+    marginTop: Spacing.two,
   },
   link: {
     opacity: 0.8,

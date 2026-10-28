@@ -1,5 +1,7 @@
+import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import type { LeagueRecord } from '@/lib/history';
+import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
 import type { Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
@@ -18,7 +20,7 @@ export type LeagueHistory = {
 export async function loadLeagueHistory(): Promise<LeagueHistory> {
   const { data: auth } = await supabase.auth.getSession();
   const userId = auth.session?.user.id ?? '';
-  const [groups, memberRows] = await Promise.all([
+  const [groups, memberRows, blockedIds] = await Promise.all([
     supabase
       .from('groups')
       .select('*, rounds (id, status, round_number, category)')
@@ -28,6 +30,7 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
       .from('group_members')
       .select('group_id, profiles (id, display_name, avatar_doodle)')
       .then(check<{ group_id: string; profiles: Profile }[]>),
+    loadBlockedIds(),
   ]);
 
   const openRounds = groups.flatMap((g) =>
@@ -49,7 +52,10 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
     const roundIds = new Set(group.rounds.map((r) => r.id));
     records.set(group.id, {
       group,
-      members: memberRows.filter((m) => m.group_id === group.id).map((m) => m.profiles),
+      members: maskBlocked(
+        memberRows.filter((m) => m.group_id === group.id).map((m) => m.profiles),
+        blockedIds
+      ),
       rounds: group.rounds,
       submissions: submissions.filter((s) => roundIds.has(s.round_id)),
       rankings: rankings.filter((r) => roundIds.has(r.round_id)),

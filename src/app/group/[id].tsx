@@ -29,6 +29,7 @@ import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf, type GroupDetails } from '@/lib/group-data';
 import { isLeagueOver, placeChanges, songScores } from '@/lib/history';
+import { playerActions } from '@/lib/safety';
 import { describeRules, GUESS_BONUS_POINTS, leaderboard, type ScoringRules } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
 import type { Group, Profile, Round } from '@/lib/types';
@@ -268,6 +269,24 @@ export default function GroupScreen() {
                 style={({ pressed }) => (pressed || removing === m.id) && styles.pressed}>
                 <ThemedText type="smallBold" style={{ color: theme.danger }}>
                   Remove
+                </ThemedText>
+              </Pressable>
+            )}
+            {m.id !== session?.user.id && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report or block ${m.display_name || 'this player'}`}
+                hitSlop={8}
+                onPress={async () => {
+                  const changed = await playerActions(
+                    { id: m.id, name: m.display_name || 'this player' },
+                    data.blockedIds.has(m.id)
+                  );
+                  if (changed) reload();
+                }}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  •••
                 </ThemedText>
               </Pressable>
             )}
