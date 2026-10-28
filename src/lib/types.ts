@@ -18,6 +18,7 @@ export type Group = {
   /** Players can guess who picked each song for bonus points. */
   guessing_enabled: boolean;
   created_at: string;
+  playlist_url: string | null;
 };
 
 export type Round = {
