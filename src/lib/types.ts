@@ -3,6 +3,8 @@ export type RoundStatus = 'upcoming' | 'submitting' | 'voting' | 'finished';
 export type Profile = {
   id: string;
   display_name: string;
+  /** The player's hand-drawn avatar, as SVG path data on a 100 by 100 canvas. */
+  avatar_doodle?: string | null;
 };
 
 export type Group = {

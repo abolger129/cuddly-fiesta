@@ -1,8 +1,9 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { CategoryRoulette } from '@/components/category-roulette';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { TextField } from '@/components/text-field';
@@ -12,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { alertOnError } from '@/lib/errors';
 import { DEFAULT_RULES, GUESS_BONUS_POINTS } from '@/lib/scoring';
 import { supabase } from '@/lib/supabase';
+import type { Group } from '@/lib/types';
 
 const STARTER_CATEGORIES = [
   'Songs about the weather',
@@ -21,6 +23,9 @@ const STARTER_CATEGORIES = [
 ];
 
 export default function NewGroupScreen() {
+  // Set when starting a rematch: the old league, whose players and rules carry over.
+  const { rematch } = useLocalSearchParams<{ rematch?: string }>();
+  const [rematchOf, setRematchOf] = useState<Group | null>(null);
   const [name, setName] = useState('');
   const [categories, setCategories] = useState(STARTER_CATEGORIES);
   const [guessing, setGuessing] = useState(false);
@@ -30,6 +35,33 @@ export default function NewGroupScreen() {
   const [creating, setCreating] = useState(false);
 
   const filledCategories = categories.map((c) => c.trim()).filter(Boolean);
+
+  useEffect(() => {
+    if (!rematch) return;
+    supabase
+      .from('groups')
+      .select('*')
+      .eq('id', rematch)
+      .single()
+      .then(({ data }) => {
+        const old = data as Group | null;
+        if (!old) return;
+        setRematchOf(old);
+        setName(`${old.name}: Rematch`.slice(0, 60));
+        setGuessing(old.guessing_enabled);
+        setRules({ points_cap: old.points_cap, downvotes: old.downvotes });
+        setSubmitHours(old.submit_hours);
+        setVoteHours(old.vote_hours);
+      });
+  }, [rematch]);
+
+  /** Put the roulette's category in the first empty round, or add a round for it. */
+  function addCategory(category: string) {
+    setCategories((current) => {
+      const empty = current.findIndex((c) => !c.trim());
+      return empty === -1 ? [...current, category] : current.map((c, i) => (i === empty ? category : c));
+    });
+  }
 
   function updateCategory(index: number, text: string) {
     setCategories((current) => current.map((c, i) => (i === index ? text : c)));
@@ -41,11 +73,17 @@ export default function NewGroupScreen() {
 
   async function create() {
     setCreating(true);
-    const { data, error } = await supabase.rpc('create_group', {
-      group_name: name.trim(),
-      categories: filledCategories,
-    });
-    if (alertOnError('Could not create the group', error)) {
+    const { data, error } = rematchOf
+      ? await supabase.rpc('rematch_league', {
+          gid: rematchOf.id,
+          group_name: name.trim(),
+          categories: filledCategories,
+        })
+      : await supabase.rpc('create_group', {
+          group_name: name.trim(),
+          categories: filledCategories,
+        });
+    if (alertOnError('Could not create the league', error)) {
       setCreating(false);
       return;
     }
@@ -54,14 +92,21 @@ export default function NewGroupScreen() {
       .update({ ...rules, guessing_enabled: guessing, submit_hours: submitHours, vote_hours: voteHours })
       .eq('id', data);
     setCreating(false);
-    // The group exists either way; the creator can fix its settings on its page.
-    alertOnError('Your group was made, but its settings were not saved', settingsError);
+    // The league exists either way; the creator can fix its settings on its page.
+    alertOnError('Your league was made, but its settings were not saved', settingsError);
     router.replace(`/group/${data}`);
   }
 
   return (
     <Screen>
-      <ThemedText type="smallBold">Group name</ThemedText>
+      {rematch && <Stack.Screen options={{ title: 'Rematch' }} />}
+      {rematchOf && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Everyone from {rematchOf.name} is added to the new league, and you&apos;ll be the host. Its
+          rules are filled in below.
+        </ThemedText>
+      )}
+      <ThemedText type="smallBold">League name</ThemedText>
       <TextField value={name} onChangeText={setName} placeholder="Friday Night Tunes" maxLength={60} />
 
       <ThemedText type="smallBold">Rounds</ThemedText>
@@ -94,6 +139,7 @@ export default function NewGroupScreen() {
         variant="secondary"
         onPress={() => setCategories((current) => [...current, ''])}
       />
+      <CategoryRoulette taken={categories} onPick={addCategory} />
 
       <ThemedText type="smallBold">Scoring</ThemedText>
       <ScoringRulesPicker rules={rules} onChange={setRules} />
@@ -118,7 +164,7 @@ export default function NewGroupScreen() {
       <TimerPicker label="Time to rank the songs" value={voteHours} onChange={setVoteHours} />
 
       <Button
-        title={`Create group with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
+        title={`${rematchOf ? 'Start rematch' : 'Create league'} with ${filledCategories.length} ${filledCategories.length === 1 ? 'round' : 'rounds'}`}
         onPress={create}
         loading={creating}
         disabled={!name.trim() || filledCategories.length === 0}

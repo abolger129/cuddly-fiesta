@@ -12,6 +12,7 @@ import { PlaylistCard } from '@/components/playlist-card';
 import { RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
 import { SectionLabel } from '@/components/section-label';
+import { ShareCard } from '@/components/share-card';
 import { Sleeve } from '@/components/sleeve';
 import { SongRow, TrackNumber } from '@/components/song-row';
 import { SongSearch } from '@/components/song-search';
@@ -465,7 +466,7 @@ function Voting({
 }
 
 function Results({ details, userId, isCreator, onChanged }: StageProps & { userId: string }) {
-  const { group, submissions, rankings, guesses, members, comments } = details;
+  const { group, round, submissions, rankings, guesses, members, comments } = details;
   const points = scoreRound(rankings, group);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
   const winner = results[0];
@@ -481,6 +482,14 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
       total: guesses.filter((g) => g.guesser_id === id).length,
     }))
     .sort((a, b) => b.right - a.right);
+  const winnerGuesses = winner ? guesses.filter((g) => g.submission_id === winner.id) : [];
+  const winnerSpotted = winnerGuesses.filter(isRight).length;
+  const shareLines = results.slice(0, 3).map((s, i) => ({
+    number: trackLabel(i, results.length),
+    title: s.track_name,
+    detail: `${s.artist_name} · ${nameOf(members, s.user_id)}`,
+    points: String(points.get(s.id) ?? 0),
+  }));
 
   return (
     <>
@@ -499,6 +508,11 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
             </ThemedText>
           </View>
         </View>
+      )}
+      {winner && guessing && winnerGuesses.length > 0 && (
+        <ThemedText type="hand" themeColor="accent" style={styles.marginNote}>
+          {winnerSpotted} of {winnerGuesses.length} guessed {nameOf(members, winner.user_id)}
+        </ThemedText>
       )}
       <PlaylistCard details={details} isCreator={isCreator} onChanged={onChanged} />
       <SectionLabel>The credits</SectionLabel>
@@ -546,6 +560,19 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
           );
         })}
       </View>
+      {results.length > 0 && (
+        <>
+          <SectionLabel>Share the results</SectionLabel>
+          <ShareCard
+            kicker={`Round ${round.round_number} · ${round.category}`}
+            title="Top of the round"
+            lines={shareLines}
+            fallbackMessage={`${group.name}, round ${round.round_number}: ${round.category}\n${shareLines
+              .map((l) => `${l.number} ${l.title} (${l.detail}) ${l.points} pts`)
+              .join('\n')}`}
+          />
+        </>
+      )}
       {guessing && (
         <>
           <SectionLabel>Guess bonuses</SectionLabel>
@@ -610,10 +637,10 @@ function Comments({ comments, members }: { comments: SongComment[]; members: Pro
   if (comments.length === 0) return null;
   return (
     <View style={styles.comments}>
+      {/* Comments read like notes scribbled in the margin. */}
       {comments.map((c) => (
-        <ThemedText key={c.voter_id} type="small">
-          <ThemedText type="smallBold">{nameOf(members, c.voter_id)}: </ThemedText>
-          {c.body}
+        <ThemedText key={c.voter_id} type="hand" themeColor="textSecondary">
+          {nameOf(members, c.voter_id)}: &ldquo;{c.body}&rdquo;
         </ThemedText>
       ))}
     </View>
@@ -635,6 +662,9 @@ const styles = StyleSheet.create({
   heroText: {
     flex: 1,
     gap: Spacing.one,
+  },
+  marginNote: {
+    marginTop: -Spacing.two,
   },
   heroTitle: {
     fontSize: 24,

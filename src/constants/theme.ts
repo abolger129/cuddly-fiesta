@@ -1,11 +1,17 @@
 /**
  * The Liner Notes look: clean paper and ink, with each round and league getting its own
- * record-sleeve color. Album art does most of the visual work.
+ * record-sleeve color. Album art does most of the visual work. Cobalt, the app icon's
+ * background, is the brand color, and Anna's hand-drawn doodles are the accents.
  */
 
 import '@/global.css';
 
 import { Platform } from 'react-native';
+
+/** The app icon's cobalt blue. Main buttons, links and highlights use it. */
+export const Brand = '#3156F5';
+/** Text and linework on cobalt. */
+export const OnBrand = '#FFFFFF';
 
 export const Colors = {
   light: {
@@ -16,8 +22,8 @@ export const Colors = {
     textSecondary: '#6D6E78',
     /** Hairline rules between tracks and under section labels. */
     rule: '#E3E3E0',
-    accent: '#15151B',
-    onAccent: '#FAFAF8',
+    accent: Brand,
+    onAccent: OnBrand,
     danger: '#D93025',
   },
   dark: {
@@ -27,8 +33,8 @@ export const Colors = {
     backgroundSelected: '#2A2A31',
     textSecondary: '#A3A4AE',
     rule: '#2C2C33',
-    accent: '#F2F1EC',
-    onAccent: '#121216',
+    accent: Brand,
+    onAccent: OnBrand,
     danger: '#FF6B5E',
   },
 } as const;
@@ -38,7 +44,7 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 /**
  * Sleeve colors for rounds and leagues. All of them carry white text, in light and dark mode.
  */
-export const SleeveColors = ['#2445FF', '#E8482A', '#0E9F7E', '#7B3FE4', '#D6336C', '#1B7F9E'] as const;
+export const SleeveColors = [Brand, '#E8482A', '#0E9F7E', '#7B3FE4', '#D6336C', '#1B7F9E'] as const;
 export const OnSleeve = '#FFFFFF';
 
 /** A round's sleeve color, by its number. */
@@ -64,6 +70,8 @@ export const Fonts = {
   display: 'BricolageGrotesque_800ExtraBold',
   mono: 'IBMPlexMono_400Regular',
   monoBold: 'IBMPlexMono_600SemiBold',
+  /** Handwriting, for notes in the margins. */
+  hand: 'Caveat_600SemiBold',
 } as const;
 
 export const Spacing = {

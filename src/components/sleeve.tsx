@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { OnSleeve, Spacing } from '@/constants/theme';
+import { Colors, Fonts, OnSleeve, Spacing } from '@/constants/theme';
 
 type SleeveProps = PropsWithChildren<{
   /** The sleeve's background color, from SleeveColors. */
@@ -58,6 +58,17 @@ export function Stamp({ text, color = OnSleeve }: { text: string; color?: string
   return (
     <View style={[styles.stamp, { borderColor: color }]}>
       <ThemedText type="label" style={[styles.stampText, { color }]}>
+        {text}
+      </ThemedText>
+    </View>
+  );
+}
+
+/** A solid, slightly crooked sticker that shouts for attention, like "Your turn". */
+export function Sticker({ text }: { text: string }) {
+  return (
+    <View style={styles.sticker}>
+      <ThemedText type="label" style={styles.stickerText}>
         {text}
       </ThemedText>
     </View>
@@ -126,6 +137,19 @@ const styles = StyleSheet.create({
   stampText: {
     fontSize: 10,
     lineHeight: 14,
+  },
+  sticker: {
+    backgroundColor: OnSleeve,
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    transform: [{ rotate: '3deg' }],
+  },
+  stickerText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: Fonts.monoBold,
+    color: Colors.light.text,
   },
   pressed: {
     opacity: 0.8,

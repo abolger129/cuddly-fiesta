@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { Button } from '@/components/button';
@@ -9,7 +9,9 @@ import { alertOnError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 
 export default function JoinGroupScreen() {
-  const [code, setCode] = useState('');
+  // Opening an invite link or scanning a QR code fills the code in.
+  const params = useLocalSearchParams<{ code?: string }>();
+  const [code, setCode] = useState((params.code ?? '').toUpperCase().slice(0, 6));
   const [joining, setJoining] = useState(false);
 
   async function join() {
@@ -23,7 +25,8 @@ export default function JoinGroupScreen() {
   return (
     <Screen>
       <ThemedText type="small" themeColor="textSecondary">
-        Ask whoever started the group for its 6-character invite code.
+        Ask whoever started the league for its 6-character invite code, or scan the QR code on
+        their league screen.
       </ThemedText>
       <TextField
         value={code}
@@ -34,7 +37,7 @@ export default function JoinGroupScreen() {
         maxLength={6}
         autoFocus
       />
-      <Button title="Join group" onPress={join} loading={joining} disabled={code.trim().length < 6} />
+      <Button title="Join league" onPress={join} loading={joining} disabled={code.trim().length < 6} />
     </Screen>
   );
 }
