@@ -12,6 +12,7 @@ export type Group = {
   created_by: string;
   total_rounds: number;
   created_at: string;
+  playlist_url: string | null;
 };
 
 export type Round = {
