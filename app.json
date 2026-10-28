@@ -8,7 +8,7 @@
     "scheme": "musicleague",
     "userInterfaceStyle": "automatic",
     "runtimeVersion": {
-      "policy": "fingerprint"
+      "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/24c7fea9-584e-4323-94f6-8f7ca68188fe"
