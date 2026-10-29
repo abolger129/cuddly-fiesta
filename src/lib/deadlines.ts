@@ -11,6 +11,26 @@ export function describeHours(hours: number | null): string {
   return plural(hours, 'hour');
 }
 
+/** How often a round can be nudged, in minutes, offered to the host. null turns nudges off. */
+export const NUDGE_OPTIONS: (number | null)[] = [null, 15, 60, 360, 1440];
+
+/** "Off", "Every 15 minutes", "Once an hour", "Every 6 hours", "Once a day" */
+export function describeNudgeLimit(minutes: number | null): string {
+  if (minutes == null) return 'Off';
+  if (minutes === 60) return 'Once an hour';
+  if (minutes === 1440) return 'Once a day';
+  if (minutes % 1440 === 0) return `Every ${plural(minutes / 1440, 'day')}`;
+  if (minutes % 60 === 0) return `Every ${plural(minutes / 60, 'hour')}`;
+  return `Every ${plural(minutes, 'minute')}`;
+}
+
+/** When the round can next be nudged. null when nudges are off; the epoch when it can be nudged now. */
+export function nextNudgeAt(lastNudgedAt: string | null, cooldownMinutes: number | null): Date | null {
+  if (cooldownMinutes == null) return null;
+  if (!lastNudgedAt) return new Date(0);
+  return new Date(new Date(lastNudgedAt).getTime() + cooldownMinutes * 60_000);
+}
+
 /** When the round's current stage closes, if it has a timer. */
 export function activeDeadline(round: Pick<Round, 'status' | 'submit_deadline' | 'vote_deadline'>): Date | null {
   const deadline =

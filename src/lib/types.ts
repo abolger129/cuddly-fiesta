@@ -29,6 +29,8 @@ export type Group = {
   playlist_url: string | null;
   /** Artists nobody can pick in any round of this league. */
   banned_artists: string[];
+  /** Minutes a round waits after a nudge before it can be nudged again. null: nudges are off. */
+  nudge_cooldown_minutes: number | null;
 };
 
 export type Round = {

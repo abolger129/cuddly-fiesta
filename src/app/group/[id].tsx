@@ -12,6 +12,7 @@ import { Figure, ScribbleCircle } from '@/components/doodles';
 import { InviteCard } from '@/components/invite-card';
 import { LeagueAwards } from '@/components/league-awards';
 import { LeaguePlaylistCard } from '@/components/league-playlist-card';
+import { nudgeLimitOf, NudgeLimitPicker } from '@/components/nudge-limit-picker';
 import { Screen } from '@/components/screen';
 import { ScoringRulesPicker } from '@/components/scoring-rules-picker';
 import { SectionLabel } from '@/components/section-label';
@@ -24,7 +25,7 @@ import { colorForId, OnSleeve, roundColor, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
-import { describeHours } from '@/lib/deadlines';
+import { describeHours, describeNudgeLimit } from '@/lib/deadlines';
 import { confirmDestructive } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { loadGroupDetails, nameOf, type GroupDetails } from '@/lib/group-data';
@@ -335,6 +336,8 @@ export default function GroupScreen() {
 
           <RoundTimers group={group} onChanged={reload} />
 
+          <NudgeLimitPicker group={group} onChanged={reload} />
+
           <BannedArtistsEditor
             title="Banned artists"
             hint="Nobody can pick a song by these artists in any round. To ban an artist for one round, open that round."
@@ -350,6 +353,11 @@ export default function GroupScreen() {
           <Card>
             <ThemedText type="small">{describeRules(group)}</ThemedText>
             <ThemedText type="small">{describeTimers(group)}</ThemedText>
+            <ThemedText type="small">
+              {nudgeLimitOf(group) == null
+                ? 'Nudges are off.'
+                : `Nudges: ${describeNudgeLimit(nudgeLimitOf(group)).toLowerCase()} per round.`}
+            </ThemedText>
             {group.guessing_enabled && (
               <ThemedText type="small">
                 Guess who picked each song while ranking. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
