@@ -12,6 +12,7 @@ Built with [Expo](https://expo.dev) (React Native + TypeScript) for iPhone and A
 - [x] Round timers (e.g. 24 hours to pick, 48 to rank) and push notifications
 - [ ] Testing with friends (TestFlight, Android `.apk` link), then store release. Steps: [docs/testing-with-friends.md](docs/testing-with-friends.md)
 - Shipping changes without a new build (over-the-air updates): [docs/over-the-air-updates.md](docs/over-the-air-updates.md)
+- Web version for playing in a browser (free, on GitHub Pages): [docs/web-version.md](docs/web-version.md)
 
 ## Run it on your Mac
 

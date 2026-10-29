@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -9,6 +9,7 @@ import { Linework, ScribbleUnderline } from '@/components/doodles';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, MaxContentWidth, OnBrand, Spacing } from '@/constants/theme';
+import { showAlert } from '@/lib/alert';
 import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
@@ -42,7 +43,7 @@ export default function SignInScreen() {
       await (provider === 'Apple' ? signInWithApple() : signInWithGoogle());
       // On success the auth listener switches to the signed-in screens.
     } catch (e) {
-      Alert.alert(`${provider} sign-in did not work`, e instanceof Error ? e.message : String(e));
+      showAlert(`${provider} sign-in did not work`, e instanceof Error ? e.message : String(e));
     } finally {
       setSocialLoading(false);
     }
@@ -53,7 +54,7 @@ export default function SignInScreen() {
     const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
     setLoading(false);
     if (error) {
-      Alert.alert('Could not send code', error.message);
+      showAlert('Could not send code', error.message);
       return;
     }
     setCodeSent(true);
@@ -67,7 +68,7 @@ export default function SignInScreen() {
       type: 'email',
     });
     setLoading(false);
-    if (error) Alert.alert('That code did not work', error.message);
+    if (error) showAlert('That code did not work', error.message);
     // On success the auth listener switches to the signed-in screens.
   }
 
@@ -75,7 +76,7 @@ export default function SignInScreen() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
-    if (error) Alert.alert('Could not sign in', error.message);
+    if (error) showAlert('Could not sign in', error.message);
     // On success the auth listener switches to the signed-in screens.
   }
 
@@ -110,6 +111,7 @@ export default function SignInScreen() {
                   autoComplete="one-time-code"
                   textContentType="oneTimeCode"
                   maxLength={MAX_CODE_LENGTH}
+                  onSubmitEditing={() => code.trim().length >= MIN_CODE_LENGTH && verifyCode()}
                 />
                 <Button
                   title="Sign in"
@@ -155,6 +157,8 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoComplete="email"
                   textContentType="emailAddress"
+                  // Enter sends the code, which is handy with a keyboard on the web.
+                  onSubmitEditing={() => !usePassword && email.includes('@') && sendCode()}
                 />
                 {usePassword ? (
                   <>
@@ -166,6 +170,7 @@ export default function SignInScreen() {
                       autoCapitalize="none"
                       autoComplete="current-password"
                       textContentType="password"
+                      onSubmitEditing={() => email.includes('@') && password.length > 0 && passwordSignIn()}
                     />
                     <Button
                       title="Sign in"

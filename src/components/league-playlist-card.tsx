@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Linking, Share } from 'react-native';
+import { Linking } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
 import type { GroupDetails } from '@/lib/group-data';
+import { shareText } from '@/lib/share';
 import { songListText } from '@/lib/song-links';
 import { syncLeaguePlaylist } from '@/lib/spotify';
 
@@ -84,7 +85,7 @@ export function LeaguePlaylistCard({ details }: LeaguePlaylistCardProps) {
         title="Share the song list"
         variant="secondary"
         onPress={() =>
-          Share.share({ message: songListText(`${group.name}: The whole league`, inRoundOrder) }).catch(() => {})
+          shareText(songListText(`${group.name}: The whole league`, inRoundOrder)).catch(() => {})
         }
       />
     </Card>

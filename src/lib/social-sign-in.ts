@@ -2,8 +2,10 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { webAppUrl } from '@/lib/web-url';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,10 +17,21 @@ export const authRedirectUri = makeRedirectUri({
 
 /**
  * Google sign-in through Supabase's hosted OAuth page, opened in an in-app
- * browser. No native Google SDK, so it works in existing builds and on web.
+ * browser (or the same tab on the web). No native Google SDK, so it works in existing builds.
  * Returns false if the person closed the browser.
  */
 export async function signInWithGoogle() {
+  // In a browser, go to Google and come back to the web version's home page,
+  // where Supabase picks the session out of the URL (detectSessionInUrl).
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: webAppUrl('/') },
+    });
+    if (error) throw error;
+    return true;
+  }
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: authRedirectUri, skipBrowserRedirect: true },
@@ -47,6 +60,7 @@ export async function signInWithGoogle() {
 
 /** Sign in with Apple only exists on iPhone/iPad (and needs a native build). */
 export function isAppleSignInAvailable() {
+  if (Platform.OS === 'web') return Promise.resolve(false);
   return AppleAuthentication.isAvailableAsync().catch(() => false);
 }
 

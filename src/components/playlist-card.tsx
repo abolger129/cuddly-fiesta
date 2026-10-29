@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Linking, Share } from 'react-native';
+import { Linking } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
 import type { RoundDetails } from '@/lib/round-data';
+import { shareText } from '@/lib/share';
 import { songListText } from '@/lib/song-links';
 import { makeRoundPlaylist } from '@/lib/spotify';
 
@@ -55,7 +56,7 @@ export function PlaylistCard({ details }: PlaylistCardProps) {
   const title = `${group.name}: Round ${round.round_number}`;
 
   function shareSongList() {
-    Share.share({ message: songListText(`${title} · ${round.category}`, songs) }).catch(() => {});
+    shareText(songListText(`${title} · ${round.category}`, songs)).catch(() => {});
   }
 
   return (

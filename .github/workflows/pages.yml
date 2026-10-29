@@ -1,11 +1,22 @@
-# Publishes site/ (privacy policy, terms and support page) to GitHub Pages.
-# One-time setup: repo Settings → Pages → Source: GitHub Actions.
+# Publishes the website to GitHub Pages: site/ (privacy policy, terms and support
+# page) at the root, and the web version of the app under /app.
+# One-time setup: repo Settings → Pages → Source: GitHub Actions, and the
+# EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY repository variables
+# (see docs/web-version.md).
 name: Publish website
 
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'assets/**'
+      - 'app.json'
+      - 'app.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,9 +36,36 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the web version
+        env:
+          # The project URL and publishable key are public (they ship inside the app too),
+          # so they're repository variables rather than secrets.
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_KEY }}
+          WEB_BASE_URL: /${{ github.event.repository.name }}/app
+        run: |
+          if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ] || [ -z "$EXPO_PUBLIC_SUPABASE_KEY" ]; then
+            echo "::error::Add the EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY repository variables (docs/web-version.md)"
+            exit 1
+          fi
+          npx expo export --platform web --output-dir dist
+      - name: Put the site and the app together
+        run: |
+          mkdir _site
+          cp -r site/. _site/
+          cp -r dist _site/app
+          # GitHub Pages has no app routing, so links like /app/group/join land on
+          # the 404 page. Making that page the app lets it open the right screen.
+          cp dist/index.html _site/404.html
+          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
