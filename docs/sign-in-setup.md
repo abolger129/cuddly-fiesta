@@ -39,7 +39,7 @@ You don't need separate iOS or Android client IDs.
 1. On [developer.apple.com](https://developer.apple.com/account/resources/identifiers/list), open **Certificates, IDs & Profiles > Identifiers** and click `com.abolger129.thegauntlet`.
 2. Tick **Sign In with Apple** (leave it as a primary App ID) and save.
 
-EAS usually does this for you on the next iOS build, but doing it by hand means the build can't trip over it. You do **not** need an Apple key (.p8) or a Services ID: those are only for signing in with Apple on a website, and the app uses the native iPhone sign-in.
+EAS usually does this for you on the next iOS build, but doing it by hand means the build can't trip over it. You don't need a Services ID (that's only for signing in with Apple on a website). Signing in doesn't need an Apple key (.p8) either, but cancelling Sign in with Apple when someone deletes their account does, so set that up too: see [step 7](#7-cancel-sign-in-with-apple-when-an-account-is-deleted).
 
 ## 5. Supabase: turn on Apple
 
@@ -61,6 +61,43 @@ npx eas-cli@latest build --profile preview --platform android
 ```
 
 Until friends have the new build, the emailed code keeps working.
+
+## 7. Cancel Sign in with Apple when an account is deleted
+
+Apple asks that deleting an account in the app also cancels Sign in with Apple, so the app disappears from the person's iPhone **Settings > Apple Account > Sign in with Apple** list. The app does this through the `apple-token` function, which needs a key from your Apple developer account. Until the key is set up, deleting an account still works; it just doesn't cancel the Apple link.
+
+### Make the key (Apple Developer)
+
+1. On [developer.apple.com](https://developer.apple.com/account/resources/authkeys/list), open **Certificates, IDs & Profiles > Keys** and click the **+** button.
+2. **Key Name**: anything, for example `The Gauntlet Sign in with Apple`.
+3. Tick **Sign in with Apple**, then click **Configure** next to it. Pick `com.abolger129.thegauntlet` as the **Primary App ID**, and click **Save**.
+4. Click **Continue**, then **Register**.
+5. Click **Download**. You get a file called `AuthKey_XXXXXXXXXX.p8`. **Apple only lets you download it once**, so keep it somewhere safe (a password manager is ideal). Never put it in the repo; `.gitignore` already skips `*.p8` files.
+6. Note two IDs:
+   - **Key ID**: the 10 characters on the key's page (also the `XXXXXXXXXX` in the file name).
+   - **Team ID**: 10 characters, shown at the top right of the developer site under your name, and under **Membership details**.
+
+### Give it to Supabase
+
+In a terminal in the repo folder (logged in and linked to your Supabase project, as in the README), with the `.p8` file in your Downloads folder:
+
+```bash
+npx supabase secrets set APPLE_TEAM_ID=<team id> APPLE_KEY_ID=<key id>
+npx supabase secrets set APPLE_PRIVATE_KEY="$(cat ~/Downloads/AuthKey_<key id>.p8)"
+npx supabase functions deploy apple-token
+```
+
+Or in the dashboard: **Edge Functions > Secrets**, add `APPLE_TEAM_ID`, `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` (open the `.p8` file in TextEdit and paste everything, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines).
+
+Then run `supabase/migrations/20261029010000_apple_sign_in_tokens.sql` in the **SQL Editor**. It adds the table where the function keeps each player's Apple token; no player can read it.
+
+### How it works
+
+- Each time someone signs in with Apple, the app sends Apple's one-time code to the function, which swaps it for a token and saves it.
+- When they delete their account, the app asks the function to cancel that token with Apple first, then deletes the account.
+- People who signed in with Apple before this existed have no saved token, so when they delete their account the Apple sheet pops up once more to confirm, and that gives the function what it needs. If they cancel the sheet, the account is still deleted.
+
+This is app code only (no new native module), so it reaches existing builds with an over-the-air update (`npm run update:production` and `npm run update:preview`), or with the next build.
 
 ## What happens to existing accounts
 

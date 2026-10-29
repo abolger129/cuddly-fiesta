@@ -15,6 +15,7 @@ import { alertOnError } from '@/lib/errors';
 import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { unregisterPushNotifications } from '@/lib/notifications';
 import { unblockPlayer } from '@/lib/safety';
+import { revokeAppleSignIn } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
@@ -77,6 +78,7 @@ export default function ProfileScreen() {
     if (!ok) return;
     setDeleting(true);
     await unregisterPushNotifications();
+    await revokeAppleSignIn();
     const { error } = await supabase.rpc('delete_my_account');
     if (alertOnError('Could not delete your account', error)) {
       setDeleting(false);

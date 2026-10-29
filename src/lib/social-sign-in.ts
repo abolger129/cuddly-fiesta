@@ -101,5 +101,52 @@ export async function signInWithApple() {
   if (name && data.user) {
     await supabase.from('profiles').update({ display_name: name }).eq('id', data.user.id);
   }
+
+  // Keep a token so Sign in with Apple can be cancelled if the account is deleted.
+  // Sign-in has already worked, so a problem here only gets logged.
+  if (credential.authorizationCode) {
+    supabase.functions
+      .invoke('apple-token', {
+        body: { action: 'save', authorization_code: credential.authorizationCode },
+      })
+      .then(({ error }) => error && console.warn('Could not save the Apple token', error));
+  }
   return true;
+}
+
+/**
+ * Cancel Sign in with Apple for this account, as Apple asks when an account is
+ * deleted, so the app leaves the person's Apple Account settings. Call it
+ * before deleting the account. People who signed in before tokens were kept
+ * are asked to confirm with Apple once more. Never throws: deleting the
+ * account matters more, and the person can still remove the app in Settings.
+ */
+export async function revokeAppleSignIn() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.identities?.some((i) => i.provider === 'apple')) return;
+
+    const { data, error } = await supabase.functions.invoke('apple-token', {
+      body: { action: 'revoke' },
+    });
+    if (error) throw error;
+    if (!data?.needs_code || !(await isAppleSignInAvailable())) return;
+
+    let credential: AppleAuthentication.AppleAuthenticationCredential;
+    try {
+      credential = await AppleAuthentication.signInAsync();
+    } catch (e) {
+      if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return;
+      throw e;
+    }
+    if (!credential.authorizationCode) return;
+    const { error: revokeError } = await supabase.functions.invoke('apple-token', {
+      body: { action: 'revoke', authorization_code: credential.authorizationCode },
+    });
+    if (revokeError) throw revokeError;
+  } catch (e) {
+    console.warn('Could not cancel Sign in with Apple', e);
+  }
 }

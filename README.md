@@ -50,7 +50,7 @@ npm install
 
 4. Copy `.env.example` to `.env` and fill in the Supabase values: the project URL (from the **Connect** button) and the **publishable** (or anon) key from **Project Settings > API Keys**. Never use the secret / service_role key in the app.
 
-5. Optional but recommended: turn on **Sign in with Apple** and **Google** by following [docs/sign-in-setup.md](docs/sign-in-setup.md). The emailed code keeps working either way.
+5. Optional but recommended: turn on **Sign in with Apple** and **Google** by following [docs/sign-in-setup.md](docs/sign-in-setup.md). The emailed code keeps working either way. If you turn on Apple, also do step 7 there (an Apple key for the `apple-token` function), which App Review expects.
 
 Note: Supabase's built-in email sender only allows a few emails per hour. That's fine while testing; before inviting lots of friends, set up a free custom SMTP provider under **Authentication > Emails > SMTP Settings**.
 

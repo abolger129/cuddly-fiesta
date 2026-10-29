@@ -424,3 +424,7 @@ verify_jwt = false
 # users, whom the function checks itself.
 [functions.spotify-playlist]
 verify_jwt = false
+
+# Called by signed-in app users only.
+[functions.apple-token]
+verify_jwt = true
