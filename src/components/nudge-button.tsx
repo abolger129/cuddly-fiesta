@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
 import { Button } from '@/components/button';
 import { useNow } from '@/hooks/use-now';
+import { showAlert } from '@/lib/alert';
 import { formatTimeLeft } from '@/lib/deadlines';
 import { alertOnError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
@@ -22,7 +22,7 @@ export function NudgeButton({ round, onChanged }: { round: Round; onChanged: () 
     const { data, error } = await supabase.rpc('nudge_round', { rid: round.id });
     setBusy(false);
     if (alertOnError('Could not nudge', error)) return;
-    Alert.alert('Nudged', `${data} ${data === 1 ? 'player' : 'players'} got a reminder.`);
+    showAlert('Nudged', `${data} ${data === 1 ? 'player' : 'players'} got a reminder.`);
     onChanged();
   }
 

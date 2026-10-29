@@ -1,12 +1,13 @@
 import * as Sharing from 'expo-sharing';
 import { useRef, useState, type ComponentRef } from 'react';
-import { Platform, Share, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { Button } from '@/components/button';
 import { Linework } from '@/components/doodles';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Fonts, OnBrand, Spacing } from '@/constants/theme';
+import { shareText } from '@/lib/share';
 
 export type ShareLine = { number: string; title: string; detail: string; points?: string };
 
@@ -33,11 +34,11 @@ export function ShareCard({ kicker, title, lines, fallbackMessage }: ShareCardPr
         const uri = await captureRef(card, { format: 'png', quality: 1, result: 'tmpfile' });
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: title, UTI: 'public.png' });
       } else {
-        await Share.share({ message: fallbackMessage });
+        await shareText(fallbackMessage);
       }
     } catch {
       // If the picture couldn't be made, share the results as text instead.
-      await Share.share({ message: fallbackMessage }).catch(() => {});
+      await shareText(fallbackMessage).catch(() => {});
     } finally {
       setSharing(false);
     }

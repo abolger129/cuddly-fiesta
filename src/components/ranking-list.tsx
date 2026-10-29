@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import ReorderableList, {
   reorderItems,
   useIsActive,
@@ -88,14 +88,17 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
   const drag = useReorderableDrag();
   const isActive = useIsActive();
   const theme = useTheme();
-  const [commenting, setCommenting] = useState(comment !== '');
+  // With a keyboard on the web, every comment box is open so you can Tab from one song to the next.
+  const [commenting, setCommenting] = useState(Platform.OS === 'web' || comment !== '');
   const url = songUrl(song);
 
   return (
     <Pressable
-      onPress={url ? () => Linking.openURL(url) : undefined}
+      onPress={url ? (e) => !isInTextBox(e) && Linking.openURL(url) : undefined}
       onLongPress={drag}
       delayLongPress={150}
+      // Skipped by Tab on the web, so Tab goes straight from one comment box to the next.
+      tabIndex={Platform.OS === 'web' ? -1 : undefined}
       accessibilityHint="Press and hold, then drag to change its rank">
       <ThemedView
         type={isActive ? 'backgroundElement' : 'background'}
@@ -111,7 +114,11 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
               <ThemedText type="mono" themeColor={points < 0 ? 'danger' : 'textSecondary'}>
                 {formatPoints(points)}
               </ThemedText>
-              <Pressable onPressIn={drag} hitSlop={Spacing.three} accessibilityLabel="Drag to reorder">
+              <Pressable
+                onPressIn={drag}
+                hitSlop={Spacing.three}
+                tabIndex={Platform.OS === 'web' ? -1 : undefined}
+                accessibilityLabel="Drag to reorder">
                 <ThemedText themeColor="textSecondary" style={styles.handle}>
                   ≡
                 </ThemedText>
@@ -126,8 +133,8 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
             placeholder="Say something about this song"
             maxLength={MAX_COMMENT_LENGTH}
             multiline
-            autoFocus={comment === ''}
-            onBlur={() => setCommenting(comment.trim() !== '')}
+            autoFocus={Platform.OS !== 'web' && comment === ''}
+            onBlur={() => setCommenting(Platform.OS === 'web' || comment.trim() !== '')}
             style={[styles.comment, { backgroundColor: theme.backgroundElement }]}
             accessibilityLabel={`Comment on ${song.track_name}`}
           />
@@ -146,6 +153,12 @@ function RankingRow({ song, position, total, points, comment, onCommentChange }:
       </ThemedView>
     </Pressable>
   );
+}
+
+/** On the web, a click in the comment box also reaches the row around it. */
+function isInTextBox(e: GestureResponderEvent): boolean {
+  const target = e.target as unknown as { tagName?: string } | null;
+  return Platform.OS === 'web' && target?.tagName === 'TEXTAREA';
 }
 
 function formatPoints(points: number): string {

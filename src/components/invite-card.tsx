@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Share, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Button } from '@/components/button';
@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { inviteLink } from '@/lib/invite';
+import { shareText } from '@/lib/share';
 import type { Group } from '@/lib/types';
 
 /** Inviting friends: share a link that opens the app ready to join, or show a QR code to scan. */
@@ -16,9 +17,9 @@ export function InviteCard({ group }: { group: Pick<Group, 'name' | 'invite_code
   const link = inviteLink(group.invite_code);
 
   function share() {
-    Share.share({
-      message: `Join my league "${group.name}" on The Gauntlet: ${link}\n\nOr open the app and enter invite code ${group.invite_code}`,
-    });
+    shareText(
+      `Join my league "${group.name}" on The Gauntlet: ${link}\n\nOr open the app and enter invite code ${group.invite_code}`
+    ).catch(() => {});
   }
 
   return (
