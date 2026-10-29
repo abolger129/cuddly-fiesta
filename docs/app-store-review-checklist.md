@@ -48,6 +48,7 @@ Not collected: location, contacts, health, financial info, browsing history, dia
 ## Sign in with Apple and account deletion
 
 Apple also asks apps that use Sign in with Apple to revoke the Apple token when an account is
-deleted. Supabase doesn't do this for us, and it needs a server secret, so this version only
-deletes the account. Players can remove the app under iPhone **Settings → Apple Account →
-Sign in with Apple**. If a reviewer flags it, that's the follow-up to build.
+deleted. The app does: deleting an account first cancels Sign in with Apple through the
+`apple-token` function. It needs an Apple key set up once; the steps are in
+[sign-in-setup.md, step 7](sign-in-setup.md#7-cancel-sign-in-with-apple-when-an-account-is-deleted).
+Do that before submitting, otherwise accounts are still deleted but the Apple link stays.
