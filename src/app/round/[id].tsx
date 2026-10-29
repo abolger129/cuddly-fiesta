@@ -11,7 +11,7 @@ import { DeadlineLabel } from '@/components/deadline-label';
 import { GuessPicker } from '@/components/guess-picker';
 import { NudgeButton } from '@/components/nudge-button';
 import { PlaylistCard } from '@/components/playlist-card';
-import { RankingList } from '@/components/ranking-list';
+import { MAX_COMMENT_LENGTH, RankingList } from '@/components/ranking-list';
 import { Screen } from '@/components/screen';
 import { SectionLabel } from '@/components/section-label';
 import { ShareCard } from '@/components/share-card';
@@ -233,6 +233,7 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
             artSize={72}
             credit={mySubmission.youtube_url ? <YoutubeTag /> : undefined}
           />
+          <OwnSongComment details={details} submissionId={mySubmission.id} onChanged={onChanged} />
           <Button title="Change my pick" variant="secondary" onPress={changePick} loading={busy} />
         </Card>
       ) : (
@@ -291,6 +292,52 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         />
       )}
     </>
+  );
+}
+
+/**
+ * A comment on your own song, written while songs are being picked. Like every
+ * comment, nobody else sees it until the round ends.
+ */
+function OwnSongComment({
+  details,
+  submissionId,
+  onChanged,
+}: {
+  details: RoundDetails;
+  submissionId: string;
+  onChanged: () => void;
+}) {
+  const saved = details.comments.find((c) => c.submission_id === submissionId)?.body ?? '';
+  const [comment, setComment] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const changed = comment.trim() !== saved;
+
+  async function save() {
+    setBusy(true);
+    const { error } = await supabase.rpc('save_my_song_comment', { rid: details.round.id, body: comment });
+    setBusy(false);
+    if (!alertOnError('Could not save your comment', error)) onChanged();
+  }
+
+  return (
+    <View style={styles.header}>
+      <TextField
+        value={comment}
+        onChangeText={setComment}
+        placeholder="Say something about your song (optional)"
+        maxLength={MAX_COMMENT_LENGTH}
+        multiline
+        accessibilityLabel="Comment on your song"
+      />
+      <ThemedText type="small" themeColor="textSecondary">
+        Only you see it until the round ends, then it shows with the results. You can still change it
+        while ranking, until you lock in your ranking.
+      </ThemedText>
+      {changed && (
+        <Button title={comment.trim() ? 'Save comment' : 'Remove comment'} onPress={save} loading={busy} />
+      )}
+    </View>
   );
 }
 
@@ -480,7 +527,8 @@ function Voting({
         return;
       }
     }
-    const commented = order.filter((s) => comments[s.id]?.trim());
+    // Your own song isn't ranked, but you can still comment on it.
+    const commented = [...order, ...(mySong ? [mySong] : [])].filter((s) => comments[s.id]?.trim());
     const { error: commentError } = await supabase.rpc('save_song_comments', {
       rid: round.id,
       submission_ids: commented.map((s) => s.id),
@@ -516,8 +564,9 @@ function Voting({
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {describeRules(details.group)} Tap Add a comment under any song to say something about
-              it. Only you see your comments until the round ends, then everyone sees who said what.
-              They&apos;re saved with your ranking.
+              it{mySong ? ', and say something about your own song at the bottom' : ''}. Only you see
+              your comments until the round ends, then everyone sees who said what. They&apos;re saved
+              with your ranking.
             </ThemedText>
           </View>
         }
@@ -549,17 +598,38 @@ function Voting({
                 ))}
               </>
             )}
+            {mySong && (
+              <Card>
+                <ThemedText type="label" themeColor="textSecondary">
+                  Your song
+                </ThemedText>
+                <SongRow
+                  trackName={mySong.track_name}
+                  artistName={mySong.artist_name}
+                  albumArtUrl={mySong.album_art_url}
+                  artSize={40}
+                  credit={mySong.youtube_url ? <YoutubeTag /> : undefined}
+                />
+                <ThemedText type="small" themeColor="textSecondary">
+                  You can&apos;t rank your own pick, but you can say something about it. Nobody sees it
+                  until the round ends.
+                </ThemedText>
+                <TextField
+                  value={comments[mySong.id] ?? ''}
+                  onChangeText={(comment) => setComments((current) => ({ ...current, [mySong.id]: comment }))}
+                  placeholder="Say something about your song"
+                  maxLength={MAX_COMMENT_LENGTH}
+                  multiline
+                  accessibilityLabel="Comment on your song"
+                />
+              </Card>
+            )}
             <Button
               title={group.guessing_enabled ? 'Lock in my ranking and guesses' : 'Lock in my ranking'}
               onPress={save}
               loading={busy}
               disabled={order.length === 0}
             />
-            {mySong && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Your song, {mySong.track_name}, is left out because you can&apos;t rank your own pick.
-              </ThemedText>
-            )}
             <VotingProgress details={details} isCreator={isCreator} onChanged={onChanged} />
           </View>
         }
@@ -763,6 +833,7 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
                 {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
                 <Comments
                   comments={comments.filter((c) => c.submission_id === s.id)}
+                  pickedBy={s.user_id}
                   members={members}
                   userId={userId}
                   onBlocked={onChanged}
@@ -847,11 +918,14 @@ function GuessReveal({
 
 function Comments({
   comments,
+  pickedBy,
   members,
   userId,
   onBlocked,
 }: {
   comments: SongComment[];
+  /** Who picked the song, so their own comment on it can say so. */
+  pickedBy: string;
   members: Profile[];
   userId: string | undefined;
   onBlocked: () => void;
@@ -869,6 +943,12 @@ function Comments({
             <View style={styles.grow}>
               <ThemedText type="smallBold" style={{ color }}>
                 {nameOf(members, c.voter_id)}
+                {c.voter_id === pickedBy && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {' '}
+                    · their pick
+                  </ThemedText>
+                )}
               </ThemedText>
               <ThemedText>{c.body}</ThemedText>
             </View>
