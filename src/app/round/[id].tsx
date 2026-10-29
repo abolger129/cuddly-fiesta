@@ -701,15 +701,19 @@ function Comments({
   userId: string | undefined;
   onBlocked: () => void;
 }) {
+  const theme = useTheme();
   if (comments.length === 0) return null;
   return (
     <View style={styles.comments}>
-      {/* Comments read like notes scribbled in the margin. */}
+      {/* Comments sit in the margin like liner notes, but in the body font so they're easy to read. */}
       {comments.map((c) => (
-        <View key={c.voter_id} style={styles.commentRow}>
-          <ThemedText type="hand" themeColor="textSecondary" style={styles.grow}>
-            {nameOf(members, c.voter_id)}: &ldquo;{c.body}&rdquo;
-          </ThemedText>
+        <View key={c.voter_id} style={[styles.commentRow, { borderLeftColor: theme.accent }]}>
+          <View style={styles.grow}>
+            <ThemedText type="smallBold" themeColor="accent">
+              {nameOf(members, c.voter_id)}
+            </ThemedText>
+            <ThemedText>{c.body}</ThemedText>
+          </View>
           {c.voter_id !== userId && (
             <Pressable
               accessibilityRole="button"
@@ -796,12 +800,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   comments: {
-    gap: Spacing.one,
-    paddingTop: Spacing.one,
+    gap: Spacing.three,
+    paddingTop: Spacing.two,
   },
   commentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.two,
+    borderLeftWidth: 3,
+    paddingLeft: Spacing.three,
   },
 });

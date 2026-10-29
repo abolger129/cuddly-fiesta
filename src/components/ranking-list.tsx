@@ -186,7 +186,8 @@ const styles = StyleSheet.create({
   },
   comment: {
     paddingVertical: Spacing.two,
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 22,
   },
   addComment: {
     alignSelf: 'flex-start',
