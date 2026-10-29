@@ -23,7 +23,8 @@ import { StatusLabel } from '@/components/status-label';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, roundColor, Spacing } from '@/constants/theme';
+import { Fonts, playerColor, roundColor, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
@@ -855,39 +856,43 @@ function Comments({
   userId: string | undefined;
   onBlocked: () => void;
 }) {
-  const theme = useTheme();
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   if (comments.length === 0) return null;
+  const memberIds = members.map((m) => m.id);
   return (
     <View style={styles.comments}>
-      {/* Comments sit in the margin like liner notes, but in the body font so they're easy to read. */}
-      {comments.map((c) => (
-        <View key={c.voter_id} style={[styles.commentRow, { borderLeftColor: theme.accent }]}>
-          <View style={styles.grow}>
-            <ThemedText type="smallBold" themeColor="accent">
-              {nameOf(members, c.voter_id)}
-            </ThemedText>
-            <ThemedText>{c.body}</ThemedText>
-          </View>
-          {c.voter_id !== userId && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Report ${nameOf(members, c.voter_id)}'s comment`}
-              hitSlop={8}
-              onPress={async () => {
-                const blocked = await reportPlayer(
-                  { id: c.voter_id, name: nameOf(members, c.voter_id) },
-                  c.submission_id
-                );
-                if (blocked) onBlocked();
-              }}
-              style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedText type="mono" themeColor="textSecondary">
-                Report
+      {/* Comments sit in the margin like liner notes. Each player's name and margin line get their own color. */}
+      {comments.map((c) => {
+        const color = playerColor(c.voter_id, memberIds, scheme);
+        return (
+          <View key={c.voter_id} style={[styles.commentRow, { borderLeftColor: color }]}>
+            <View style={styles.grow}>
+              <ThemedText type="smallBold" style={{ color }}>
+                {nameOf(members, c.voter_id)}
               </ThemedText>
-            </Pressable>
-          )}
-        </View>
-      ))}
+              <ThemedText>{c.body}</ThemedText>
+            </View>
+            {c.voter_id !== userId && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Report ${nameOf(members, c.voter_id)}'s comment`}
+                hitSlop={8}
+                onPress={async () => {
+                  const blocked = await reportPlayer(
+                    { id: c.voter_id, name: nameOf(members, c.voter_id) },
+                    c.submission_id
+                  );
+                  if (blocked) onBlocked();
+                }}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="mono" themeColor="textSecondary">
+                  Report
+                </ThemedText>
+              </Pressable>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
