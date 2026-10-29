@@ -10,6 +10,11 @@
 // call it, and calling it again does nothing new, so the app calls it whenever
 // a playlist is due.
 //
+// The database also calls it as soon as ranking opens or a round finishes, so
+// playlists are ready before anyone opens the app. Those calls carry the
+// x-playlist-hook secret from the server_settings table instead of a user, so
+// deploy with --no-verify-jwt (users are still checked below).
+//
 // Needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN (see
 // the spotify-owner-connect function for getting the last one).
 
@@ -125,7 +130,9 @@ const admin = createClient(
   { auth: { persistSession: false } }
 );
 
-async function isMember(groupId: string, userId: string) {
+/** userId is null for the database's own calls, which may see any league. */
+async function isMember(groupId: string, userId: string | null) {
+  if (userId === null) return true;
   const { data } = await admin
     .from('group_members')
     .select('user_id')
@@ -152,7 +159,7 @@ async function claimLink(table: 'rounds' | 'groups', id: string, playlist: { id:
   return row?.playlist_url ?? null;
 }
 
-async function roundPlaylist(roundId: string, userId: string) {
+async function roundPlaylist(roundId: string, userId: string | null) {
   const { data: round } = await admin
     .from('rounds')
     .select('id, group_id, round_number, category, status, playlist_url, groups(name)')
@@ -183,7 +190,7 @@ async function roundPlaylist(roundId: string, userId: string) {
   return json({ url: await claimLink('rounds', roundId, playlist) });
 }
 
-async function leaguePlaylist(groupId: string, userId: string) {
+async function leaguePlaylist(groupId: string, userId: string | null) {
   const { data: group } = await admin
     .from('groups')
     .select('id, name, playlist_url')
@@ -239,19 +246,49 @@ async function leaguePlaylist(groupId: string, userId: string) {
   return json({ url: await claimLink('groups', groupId, playlist) });
 }
 
+// Database calls ---------------------------------------------------------------
+
+async function setting(key: string) {
+  const { data } = await admin.from('server_settings').select('value').eq('key', key).maybeSingle();
+  return (data?.value ?? null) as string | null;
+}
+
+async function isFromDatabase(req: Request) {
+  const sent = req.headers.get('x-playlist-hook');
+  if (!sent) return false;
+  const secret = await setting('playlist_hook_secret');
+  return secret !== null && sent === secret;
+}
+
+/** Tell the database where this function lives, so it can call it. */
+let urlSaved = false;
+async function saveFunctionsUrl() {
+  if (urlSaved) return;
+  const { error } = await admin
+    .from('server_settings')
+    .upsert({ key: 'functions_url', value: Deno.env.get('SUPABASE_URL')! }, { onConflict: 'key' });
+  // Before the migration that adds the table, the app's calls still work.
+  urlSaved = !error;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const jwt = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
-    const { data: auth } = await admin.auth.getUser(jwt);
-    if (!auth.user) return json({ error: 'You need to be signed in' }, 401);
+    let userId: string | null = null;
+    if (!(await isFromDatabase(req))) {
+      const jwt = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
+      const { data: auth } = await admin.auth.getUser(jwt);
+      if (!auth.user) return json({ error: 'You need to be signed in' }, 401);
+      userId = auth.user.id;
+      await saveFunctionsUrl();
+    }
 
     const { round_id, group_id } = await req.json();
-    if (typeof round_id === 'string') return await roundPlaylist(round_id, auth.user.id);
-    if (typeof group_id === 'string') return await leaguePlaylist(group_id, auth.user.id);
+    if (typeof round_id === 'string') return await roundPlaylist(round_id, userId);
+    if (typeof group_id === 'string') return await leaguePlaylist(group_id, userId);
     return json({ error: 'Send a round_id or group_id' }, 400);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);

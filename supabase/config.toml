@@ -419,3 +419,8 @@ enabled = true
 # can't require a signed-in app user.
 [functions.spotify-owner-connect]
 verify_jwt = false
+
+# Called by the database (with its own secret) as well as by signed-in app
+# users, whom the function checks itself.
+[functions.spotify-playlist]
+verify_jwt = false
