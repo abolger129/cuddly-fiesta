@@ -31,7 +31,7 @@ export async function registerForPushNotifications(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Rounds',
-      importance: AndroidImportance.DEFAULT,
+      importance: AndroidImportance.HIGH,
     });
   }
 

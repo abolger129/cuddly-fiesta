@@ -63,7 +63,7 @@ For a new version, run the same build command; testers get the update in TestFli
 
 - **Spotify:** nobody needs adding in the Spotify dashboard. Every playlist goes on your Spotify account, so just make sure the three Spotify functions are deployed and your account is connected (see the README).
 - **Supabase:** run any new file in `supabase/migrations` you haven't run yet.
-- **Push notifications:** iPhone needs nothing extra: `eas build` offers to set up the push key with your Apple developer account, say yes. Android needs a free Firebase project: follow [Expo's FCM guide](https://docs.expo.dev/push-notifications/fcm-credentials/) to add `google-services.json` to the app and upload the key to EAS. Notifications don't work in Expo Go or the simulator.
+- **Push notifications:** iPhone needs nothing extra: `eas build` offers to set up the push key with your Apple developer account, say yes. Android needs a free Firebase project: follow [android-push-notifications.md](android-push-notifications.md). Notifications don't work in Expo Go or the simulator.
 - **Email:** sign-in codes go out through your custom SMTP (Gmail allows a few hundred emails a day, which is fine for friends).
 
 ## Test these on a real phone first
