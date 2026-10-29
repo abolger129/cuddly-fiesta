@@ -60,6 +60,8 @@ export type Submission = {
   /** Spotify picks only, so a second song from the same album can be spotted. */
   spotify_album_id?: string | null;
   album_name?: string | null;
+  /** The song's place in the round, shuffled once when ranking opens. */
+  play_order?: number | null;
 };
 
 /** A song as shown for ranking: who picked it is hidden. */

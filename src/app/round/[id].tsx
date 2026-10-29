@@ -421,18 +421,12 @@ function NotOnSpotifyForm({
   );
 }
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-/** Songs to rank: everyone's but yours, shuffled. */
+/**
+ * Songs to rank: everyone's but yours, in the round's shuffled order (the same
+ * order as the playlist), so nothing hints at who picked first.
+ */
 function initialOrder({ songs }: RoundDetails): RoundSong[] {
-  return shuffle(songs.filter((s) => !s.is_mine));
+  return songs.filter((s) => !s.is_mine);
 }
 
 function Voting({

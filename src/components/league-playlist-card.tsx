@@ -6,7 +6,7 @@ import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
 import type { GroupDetails } from '@/lib/group-data';
 import { shareText } from '@/lib/share';
-import { songListText } from '@/lib/song-links';
+import { inPlayOrder, songListText } from '@/lib/song-links';
 import { syncLeaguePlaylist } from '@/lib/spotify';
 
 type LeaguePlaylistCardProps = {
@@ -14,9 +14,10 @@ type LeaguePlaylistCardProps = {
 };
 
 /**
- * One playlist with every song from the league's finished rounds, in round
- * order. Like round playlists it's made automatically on the app's Spotify
- * account, and opening the league brings it up to date as more rounds finish.
+ * One playlist with every song from the league's finished rounds, round by
+ * round in each round's shuffled order. Like round playlists it's made
+ * automatically on the app's Spotify account, and opening the league brings it
+ * up to date as more rounds finish.
  */
 export function LeaguePlaylistCard({ details }: LeaguePlaylistCardProps) {
   const { group, rounds, submissions } = details;
@@ -24,9 +25,7 @@ export function LeaguePlaylistCard({ details }: LeaguePlaylistCardProps) {
 
   // Submissions only cover finished rounds; songs typed in by hand are skipped.
   const roundNumber = new Map(rounds.map((r) => [r.id, r.round_number]));
-  const inRoundOrder = [...submissions].sort(
-    (a, b) => (roundNumber.get(a.round_id) ?? 0) - (roundNumber.get(b.round_id) ?? 0)
-  );
+  const inRoundOrder = inPlayOrder(submissions, roundNumber);
   const trackCount = new Set(inRoundOrder.flatMap((s) => (s.spotify_track_id ? [s.spotify_track_id] : []))).size;
 
   const [syncing, setSyncing] = useState(trackCount > 0);
