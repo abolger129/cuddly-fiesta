@@ -43,6 +43,11 @@ export type RoundDetails = {
    * players who have ranked or who are sitting the round out; empty otherwise.
    */
   votesSoFar: VoteSoFar[];
+  /**
+   * While ranking is open: each player who picked a song, and whether they've
+   * ranked yet (never how). Null if that can't be loaded.
+   */
+  voterStatus: Map<string, boolean> | null;
 };
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
@@ -55,7 +60,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     round = await fetchRound();
   }
 
-  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters, votesSoFar] =
+  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters, votesSoFar, voterStatus] =
     await Promise.all([
       supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
@@ -96,6 +101,12 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
             error ? [] : (data as VoteSoFar[])
           )
         : Promise.resolve([]),
+      // Nice-to-have too: without it the screen just shows the count.
+      round.status === 'voting'
+        ? supabase.rpc('round_voter_status', { rid: roundId }).then(({ data, error }) =>
+            error ? null : (data as { user_id: string; has_ranked: boolean }[])
+          )
+        : Promise.resolve(null),
     ]);
 
   return {
@@ -112,6 +123,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     blockedIds,
     submittedIds: submitters ? new Set(submitters.map((s) => s.user_id)) : null,
     votesSoFar,
+    voterStatus: voterStatus ? new Map(voterStatus.map((v) => [v.user_id, v.has_ranked])) : null,
   };
 }
 
