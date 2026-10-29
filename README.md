@@ -66,7 +66,7 @@ Spotify requires the owner of a developer app to have **Spotify Premium**, and a
    ```bash
    npx supabase secrets set SPOTIFY_CLIENT_ID=<client id> SPOTIFY_CLIENT_SECRET=<client secret>
    npx supabase functions deploy spotify-search
-   npx supabase functions deploy spotify-playlist
+   npx supabase functions deploy spotify-playlist --no-verify-jwt
    npx supabase functions deploy spotify-owner-connect --no-verify-jwt
    ```
 
@@ -78,7 +78,7 @@ Spotify requires the owner of a developer app to have **Spotify Premium**, and a
 
    Keep that token private: it lets anyone make playlists on your account. If playlists ever stop being made with "The playlist account needs reconnecting", repeat this step.
 
-A round's playlist is made the first time anyone opens the round after ranking starts, and the league playlist updates itself as rounds finish. This works in Expo Go too.
+A round's playlist is made as soon as ranking starts, and the league playlist updates itself as each round finishes, without anyone opening the app. (The database finds the function the first time anyone uses it after it's deployed, so the very first playlist may wait until someone opens the round.) This works in Expo Go too.
 
 ### 4. Start the app
 
@@ -91,9 +91,9 @@ Press `i` to open the iPhone simulator, `a` for an Android emulator, or scan the
 ## How a game works
 
 1. Someone creates a group with a list of categories, one per round, and shares the invite code.
-2. The group creator starts each round. Everyone picks one song that fits the category.
+2. The group creator starts round 1. Everyone picks one song that fits the category.
 3. Once everyone has picked (or the creator moves things on), ranking opens. Each player drags the other songs into order, favourite first. Nobody can see who picked what yet.
-4. Once everyone has ranked (or the creator ends voting), the round's results show who picked each song and how many points it got.
+4. Once everyone has ranked (or the creator ends voting), the round's results show who picked each song and how many points it got, and the next round opens for songs straight away.
 5. The leaderboard adds up points across rounds. Most points after the last round wins.
 
 Scoring lives in [`src/lib/scoring.ts`](src/lib/scoring.ts) so it's easy to change. Right now a voter ranking n songs gives n points to their favourite, down to 1 point for their last pick.
