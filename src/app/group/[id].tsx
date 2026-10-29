@@ -21,7 +21,7 @@ import { Sleeve, Stamp } from '@/components/sleeve';
 import { statusText } from '@/components/status-label';
 import { ThemedText } from '@/components/themed-text';
 import { TimerPicker } from '@/components/timer-picker';
-import { colorForId, OnSleeve, roundColor, Spacing } from '@/constants/theme';
+import { colorForId, OnSleeve, playerColor, roundColor, Spacing } from '@/constants/theme';
 import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
@@ -71,6 +71,15 @@ export default function GroupScreen() {
       ? lastPlace.userId
       : null;
   const profileOf = (userId: string) => members.find((m) => m.id === userId) ?? { id: userId, display_name: '' };
+  const memberIds = members.map((m) => m.id);
+  // Avatars sit on each player's name color, so you can spot people at a glance.
+  const colorOf = (userId: string) => playerColor(userId, memberIds, 'light');
+  // Whoever is out in front once a round is done wears the crown.
+  const leaders = new Set(
+    finishedCount > 0 && (standings[0]?.points ?? 0) > 0
+      ? standings.filter((s) => s.points === standings[0].points).map((s) => s.userId)
+      : []
+  );
 
   async function saveRules({ points_cap, downvotes, negative_points }: ScoringRules) {
     setSavingRules(true);
@@ -190,7 +199,7 @@ export default function GroupScreen() {
               <ThemedText type="mono" themeColor="textSecondary" style={styles.place}>
                 {String(i + 1).padStart(2, '0')}
               </ThemedText>
-              <Avatar profile={profileOf(s.userId)} size={28} />
+              <Avatar profile={profileOf(s.userId)} size={28} color={colorOf(s.userId)} crown={leaders.has(s.userId)} />
               <ThemedText type={leading ? 'smallBold' : 'small'} style={styles.grow} numberOfLines={1}>
                 {nameOf(members, s.userId)}
               </ThemedText>
@@ -244,7 +253,7 @@ export default function GroupScreen() {
       <View>
         {members.map((m) => (
           <View key={m.id} style={[styles.standing, { borderBottomColor: theme.rule }]}>
-            <Avatar profile={m} size={28} />
+            <Avatar profile={m} size={28} color={colorOf(m.id)} crown={leaders.has(m.id)} />
             <ThemedText type="small" style={styles.grow}>
               {m.display_name || 'Someone'}
               {m.id === group.created_by ? ' (host)' : ''}

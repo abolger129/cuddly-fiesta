@@ -10,7 +10,7 @@ test('blocked players lose their name and avatar, others are untouched', () => {
   ];
   const masked = maskBlocked(members, new Set(['b']));
   assert.deepEqual(masked[0], members[0]);
-  assert.deepEqual(masked[1], { id: 'b', display_name: BLOCKED_NAME, avatar_doodle: null });
+  assert.deepEqual(masked[1], { id: 'b', display_name: BLOCKED_NAME, avatar_doodle: null, avatar_sticker: null });
   assert.equal(members[1].display_name, 'Bob');
 });
 

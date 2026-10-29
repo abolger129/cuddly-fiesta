@@ -326,7 +326,7 @@ function PlayerChecklist({
         const status = statusOf(m.id);
         return (
           <View key={m.id} style={[styles.playerRow, { borderBottomColor: theme.rule }]}>
-            <Avatar profile={m} size={28} />
+            <Avatar profile={m} size={28} color={playerColor(m.id, members.map((p) => p.id), 'light')} />
             <ThemedText type="small" style={styles.grow} numberOfLines={1}>
               {m.display_name || 'Someone'}
             </ThemedText>
