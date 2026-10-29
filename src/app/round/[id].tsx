@@ -262,7 +262,14 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         </Card>
       )}
 
-      <WhoHasPicked details={details} />
+      {details.submittedIds && (
+        <PlayerChecklist
+          title="Who's picked"
+          members={details.members}
+          statusOf={(id) => (details.submittedIds?.has(id) ? 'done' : 'waiting')}
+          labels={{ done: 'Picked ✓', waiting: 'Still picking' }}
+        />
+      )}
       <ThemedText themeColor="textSecondary">
         {progress.submitted_count} of {progress.member_count} players have picked a song. Ranking
         starts once everyone is in{round.submit_deadline ? ' or time runs out' : ''}.
@@ -286,30 +293,44 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
   );
 }
 
-/** Everyone in the league, and whether they've picked a song yet. Never what they picked. */
-function WhoHasPicked({ details }: { details: RoundDetails }) {
-  const { members, submittedIds } = details;
+type PlayerStatus = 'done' | 'waiting' | 'out';
+
+/**
+ * Everyone in the league and how far along they are this round: picked or
+ * still picking, voted or still voting. Never what they picked or how they voted.
+ */
+function PlayerChecklist({
+  title,
+  members,
+  statusOf,
+  labels,
+}: {
+  title: string;
+  members: Profile[];
+  statusOf: (userId: string) => PlayerStatus;
+  labels: { done: string; waiting: string; out?: string };
+}) {
   const theme = useTheme();
-  if (!submittedIds) return null;
-  // Players who have picked first, then the rest, each in name order.
+  const order: Record<PlayerStatus, number> = { done: 0, waiting: 1, out: 2 };
+  // Done first, then still going, then anyone sitting out, each in name order.
   const sorted = [...members].sort(
     (a, b) =>
-      Number(submittedIds.has(b.id)) - Number(submittedIds.has(a.id)) ||
+      order[statusOf(a.id)] - order[statusOf(b.id)] ||
       (a.display_name || '').localeCompare(b.display_name || '')
   );
   return (
     <View>
-      <SectionLabel>Who&apos;s picked</SectionLabel>
+      <SectionLabel>{title}</SectionLabel>
       {sorted.map((m) => {
-        const picked = submittedIds.has(m.id);
+        const status = statusOf(m.id);
         return (
           <View key={m.id} style={[styles.playerRow, { borderBottomColor: theme.rule }]}>
             <Avatar profile={m} size={28} />
             <ThemedText type="small" style={styles.grow} numberOfLines={1}>
               {m.display_name || 'Someone'}
             </ThemedText>
-            <ThemedText type="smallBold" themeColor={picked ? 'accent' : 'textSecondary'}>
-              {picked ? 'Picked ✓' : 'Still picking'}
+            <ThemedText type="smallBold" themeColor={status === 'done' ? 'accent' : 'textSecondary'}>
+              {labels[status]}
             </ThemedText>
           </View>
         );
@@ -573,8 +594,18 @@ function VotingProgress({ details, isCreator, onChanged }: StageProps) {
     if (!alertOnError('Could not end voting', error)) onChanged();
   }
 
+  const { voterStatus, members } = details;
+
   return (
     <>
+      {voterStatus && (
+        <PlayerChecklist
+          title="Who's voted"
+          members={members}
+          statusOf={(id) => (!voterStatus.has(id) ? 'out' : voterStatus.get(id) ? 'done' : 'waiting')}
+          labels={{ done: 'Voted ✓', waiting: 'Still voting', out: 'Sitting out' }}
+        />
+      )}
       <ThemedText type="small" themeColor="textSecondary">
         {progress.ranked_count} of {voters} players have ranked. Only players who picked a song this round can vote.
       </ThemedText>
