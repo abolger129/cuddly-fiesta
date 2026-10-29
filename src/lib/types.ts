@@ -57,6 +57,9 @@ export type Submission = {
   track_name: string;
   artist_name: string;
   album_art_url: string | null;
+  /** Spotify picks only, so a second song from the same album can be spotted. */
+  spotify_album_id?: string | null;
+  album_name?: string | null;
 };
 
 /** A song as shown for ranking: who picked it is hidden. */
@@ -102,4 +105,12 @@ export type RoundProgress = {
   ranked_count: number;
   has_submitted: boolean;
   has_ranked: boolean;
+};
+
+/** What a song you're about to submit has in common with other players' picks. Never who picked them. */
+export type SimilarPicks = {
+  same_song: boolean;
+  same_album: boolean;
+  /** Artists on your song that someone else's song also credits, as your song names them. */
+  same_artists: string[];
 };

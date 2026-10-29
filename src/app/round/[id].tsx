@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AlbumArt } from '@/components/album-art';
+import { Avatar } from '@/components/avatar';
 import { BannedArtistsEditor, BannedArtistsNote } from '@/components/banned-artists';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -27,10 +28,12 @@ import { useLoader } from '@/hooks/use-loader';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { bannedArtistIn } from '@/lib/banned-artists';
+import { confirmChoice } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
-import { loadRoundDetails, type RoundDetails } from '@/lib/round-data';
+import { findSimilarPicks, loadRoundDetails, type RoundDetails } from '@/lib/round-data';
 import { reportPlayer } from '@/lib/safety';
+import { describeSimilarPicks } from '@/lib/similar-picks';
 import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
 import { songUrl } from '@/lib/song-links';
 import { supabase } from '@/lib/supabase';
@@ -172,6 +175,20 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
 
   async function submit(song: NewSong) {
     setBusy(true);
+    // Heads-up if someone else already picked this song, album or artist. It never says who.
+    const warning = describeSimilarPicks(await findSimilarPicks(round.id, song), song);
+    if (
+      warning &&
+      !(await confirmChoice(
+        'Heads up',
+        `${warning} You can still submit it, or go back and pick something else.`,
+        'Submit anyway',
+        'Pick another'
+      ))
+    ) {
+      setBusy(false);
+      return;
+    }
     const { error } = await supabase.from('submissions').insert({ round_id: round.id, ...song });
     setBusy(false);
     if (!alertOnError('Could not submit your song', error)) onChanged();
@@ -236,6 +253,7 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         </Card>
       )}
 
+      <WhoHasPicked details={details} />
       <ThemedText themeColor="textSecondary">
         {progress.submitted_count} of {progress.member_count} players have picked a song. Ranking
         starts once everyone is in{round.submit_deadline ? ' or time runs out' : ''}.
@@ -256,6 +274,38 @@ function Submitting({ details, isCreator, onChanged }: StageProps) {
         />
       )}
     </>
+  );
+}
+
+/** Everyone in the league, and whether they've picked a song yet. Never what they picked. */
+function WhoHasPicked({ details }: { details: RoundDetails }) {
+  const { members, submittedIds } = details;
+  const theme = useTheme();
+  if (!submittedIds) return null;
+  // Players who have picked first, then the rest, each in name order.
+  const sorted = [...members].sort(
+    (a, b) =>
+      Number(submittedIds.has(b.id)) - Number(submittedIds.has(a.id)) ||
+      (a.display_name || '').localeCompare(b.display_name || '')
+  );
+  return (
+    <View>
+      <SectionLabel>Who&apos;s picked</SectionLabel>
+      {sorted.map((m) => {
+        const picked = submittedIds.has(m.id);
+        return (
+          <View key={m.id} style={[styles.playerRow, { borderBottomColor: theme.rule }]}>
+            <Avatar profile={m} size={28} />
+            <ThemedText type="small" style={styles.grow} numberOfLines={1}>
+              {m.display_name || 'Someone'}
+            </ThemedText>
+            <ThemedText type="smallBold" themeColor={picked ? 'accent' : 'textSecondary'}>
+              {picked ? 'Picked ✓' : 'Still picking'}
+            </ThemedText>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -790,6 +840,13 @@ const styles = StyleSheet.create({
   votingFooter: {
     gap: Spacing.three,
     paddingTop: Spacing.two,
+  },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   bonusRow: {
     flexDirection: 'row',

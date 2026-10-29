@@ -5,6 +5,9 @@ export type SpotifyTrack = {
   track_name: string;
   artist_name: string;
   album_art_url: string | null;
+  /** Missing until the spotify-search function is redeployed. */
+  spotify_album_id?: string;
+  album_name?: string;
 };
 
 // Song search ------------------------------------------------------------------

@@ -2,8 +2,20 @@ import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { loadBlockedIds } from '@/lib/safety';
+import type { PickedSong } from '@/lib/similar-picks';
 import { supabase } from '@/lib/supabase';
-import type { Group, Guess, Profile, Ranking, Round, RoundProgress, RoundSong, SongComment, Submission } from '@/lib/types';
+import type {
+  Group,
+  Guess,
+  Profile,
+  Ranking,
+  Round,
+  RoundProgress,
+  RoundSong,
+  SimilarPicks,
+  SongComment,
+  Submission,
+} from '@/lib/types';
 
 export type RoundDetails = {
   round: Round;
@@ -23,6 +35,8 @@ export type RoundDetails = {
   comments: SongComment[];
   /** Players you blocked. Their names and avatars are already hidden in members. */
   blockedIds: Set<string>;
+  /** Who has picked a song so far, while songs are being picked. Null if that can't be loaded. */
+  submittedIds: Set<string> | null;
 };
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
@@ -35,7 +49,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     round = await fetchRound();
   }
 
-  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds] =
+  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters] =
     await Promise.all([
       supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
@@ -64,6 +78,12 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         .order('created_at')
         .then(check<SongComment[]>),
       loadBlockedIds(),
+      // Shown as a nice-to-have: if this fails the screen falls back to a count.
+      round.status === 'submitting'
+        ? supabase.rpc('round_submitters', { rid: roundId }).then(({ data, error }) =>
+            error ? null : (data as { user_id: string }[])
+          )
+        : Promise.resolve(null),
     ]);
 
   return {
@@ -78,5 +98,24 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     members: maskBlocked(memberRows.map((m) => m.profiles), blockedIds),
     comments,
     blockedIds,
+    submittedIds: submitters ? new Set(submitters.map((s) => s.user_id)) : null,
   };
+}
+
+/**
+ * Asks the database whether someone else this round already picked this song,
+ * a song from its album, or a song by one of its artists. Only what matched
+ * comes back, never who picked it. If the check can't run, it says nothing
+ * matched so the pick still goes through.
+ */
+export async function findSimilarPicks(roundId: string, song: PickedSong): Promise<SimilarPicks | null> {
+  const { data, error } = await supabase.rpc('similar_picks', {
+    rid: roundId,
+    title: song.track_name,
+    artists: song.artist_name,
+    track_id: song.spotify_track_id ?? null,
+    album_id: song.spotify_album_id ?? null,
+  });
+  if (error || !Array.isArray(data)) return null;
+  return (data[0] as SimilarPicks | undefined) ?? null;
 }
