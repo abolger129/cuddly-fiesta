@@ -12,3 +12,16 @@ export function confirmDestructive(title: string, message: string, action: strin
     ], { cancelable: true, onDismiss: () => resolve(false) });
   });
 }
+
+/** Ask before going ahead with something the user may want to rethink. Resolves true if they go ahead. */
+export function confirmChoice(title: string, message: string, action: string, cancel = 'Cancel'): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: cancel, style: 'cancel', onPress: () => resolve(false) },
+      { text: action, onPress: () => resolve(true) },
+    ], { cancelable: true, onDismiss: () => resolve(false) });
+  });
+}

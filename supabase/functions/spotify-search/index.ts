@@ -17,7 +17,7 @@ type SpotifyTrack = {
   id: string;
   name: string;
   artists: { name: string }[];
-  album: { images: SpotifyImage[] };
+  album: { id: string; name: string; images: SpotifyImage[] };
 };
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -87,6 +87,8 @@ Deno.serve(async (req) => {
       track_name: t.name,
       artist_name: t.artists.map((a) => a.name).join(', '),
       album_art_url: pickAlbumArt(t.album.images),
+      spotify_album_id: t.album.id,
+      album_name: t.album.name,
     }));
     return json({ tracks });
   } catch (e) {
