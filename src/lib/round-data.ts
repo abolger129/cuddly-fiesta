@@ -5,6 +5,7 @@ import { loadBlockedIds } from '@/lib/safety';
 import type { VoteSoFar } from '@/lib/scoring';
 import type { PickedSong } from '@/lib/similar-picks';
 import { supabase } from '@/lib/supabase';
+import { PROFILE_FIELDS } from '@/lib/types';
 import type {
   Group,
   Guess,
@@ -78,7 +79,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         : Promise.resolve([]),
       supabase
         .from('group_members')
-        .select('profiles (id, display_name, avatar_doodle)')
+        .select(`profiles (${PROFILE_FIELDS})`)
         .eq('group_id', round.group_id)
         .then(check<{ profiles: Profile }[]>),
       supabase.from('guesses').select('*').eq('round_id', roundId).then(check<Guess[]>),

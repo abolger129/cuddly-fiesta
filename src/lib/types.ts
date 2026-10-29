@@ -5,7 +5,19 @@ export type Profile = {
   display_name: string;
   /** The player's hand-drawn avatar, as SVG path data on a 100 by 100 canvas. */
   avatar_doodle?: string | null;
+  /** The circle behind the doodle, as #RRGGBB. Null means the player's name color. */
+  avatar_bg?: string | null;
+  /** The doodle's line color, as #RRGGBB. Null means white. */
+  avatar_ink?: string | null;
+  /** A sticker on the doodle, such as sunglasses, and where it sits on the 100 unit canvas. */
+  avatar_sticker?: string | null;
+  avatar_sticker_x?: number | null;
+  avatar_sticker_y?: number | null;
 };
+
+/** The profile columns screens load for names and avatars. */
+export const PROFILE_FIELDS =
+  'id, display_name, avatar_doodle, avatar_bg, avatar_ink, avatar_sticker, avatar_sticker_x, avatar_sticker_y';
 
 export type Group = {
   id: string;

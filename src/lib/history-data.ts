@@ -3,6 +3,7 @@ import { check } from '@/lib/db';
 import type { LeagueRecord } from '@/lib/history';
 import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
+import { PROFILE_FIELDS } from '@/lib/types';
 import type { Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
 export type LeagueHistory = {
@@ -28,7 +29,7 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
       .then(check<LeagueHistory['groups']>),
     supabase
       .from('group_members')
-      .select('group_id, profiles (id, display_name, avatar_doodle)')
+      .select(`group_id, profiles (${PROFILE_FIELDS})`)
       .then(check<{ group_id: string; profiles: Profile }[]>),
     loadBlockedIds(),
   ]);

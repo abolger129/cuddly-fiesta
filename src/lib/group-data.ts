@@ -3,6 +3,7 @@ import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
+import { PROFILE_FIELDS } from '@/lib/types';
 import type { CategorySuggestion, Group, Guess, Profile, Ranking, Round, Submission } from '@/lib/types';
 
 export type GroupDetails = {
@@ -30,7 +31,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
     supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
     supabase
       .from('group_members')
-      .select('profiles (id, display_name, avatar_doodle)')
+      .select(`profiles (${PROFILE_FIELDS})`)
       .eq('group_id', groupId)
       .order('joined_at')
       .then(check<{ profiles: Profile }[]>),

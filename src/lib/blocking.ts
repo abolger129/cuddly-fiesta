@@ -6,7 +6,7 @@ export const BLOCKED_NAME = 'Blocked player';
 /** Hide the names and avatars of players you blocked. Their songs and scores still count. */
 export function maskBlocked<T extends Profile>(members: T[], blockedIds: ReadonlySet<string>): T[] {
   return members.map((m) =>
-    blockedIds.has(m.id) ? { ...m, display_name: BLOCKED_NAME, avatar_doodle: null } : m
+    blockedIds.has(m.id) ? { ...m, display_name: BLOCKED_NAME, avatar_doodle: null, avatar_sticker: null } : m
   );
 }
 
