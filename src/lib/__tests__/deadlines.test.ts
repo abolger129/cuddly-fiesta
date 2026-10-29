@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { activeDeadline, describeHours, formatTimeLeft, isPastDeadline } from '../deadlines.ts';
+import {
+  activeDeadline,
+  describeHours,
+  describeNudgeLimit,
+  formatTimeLeft,
+  isPastDeadline,
+  nextNudgeAt,
+} from '../deadlines.ts';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -39,4 +46,20 @@ test('a round is past its deadline only while that stage is running', () => {
   assert.equal(isPastDeadline({ ...round, status: 'submitting' }, now), true);
   assert.equal(isPastDeadline({ ...round, status: 'voting' }, now), false);
   assert.equal(isPastDeadline({ ...round, status: 'upcoming' }, now), false);
+});
+
+test('nudge limits read naturally', () => {
+  assert.equal(describeNudgeLimit(null), 'Off');
+  assert.equal(describeNudgeLimit(15), 'Every 15 minutes');
+  assert.equal(describeNudgeLimit(60), 'Once an hour');
+  assert.equal(describeNudgeLimit(360), 'Every 6 hours');
+  assert.equal(describeNudgeLimit(1440), 'Once a day');
+  assert.equal(describeNudgeLimit(2880), 'Every 2 days');
+});
+
+test('the next nudge waits out the host\'s cooldown', () => {
+  assert.equal(nextNudgeAt(null, null), null);
+  assert.equal(nextNudgeAt('2026-10-29T10:00:00Z', null), null);
+  assert.equal(nextNudgeAt(null, 60)?.getTime(), 0);
+  assert.equal(nextNudgeAt('2026-10-29T10:00:00Z', 360)?.toISOString(), '2026-10-29T16:00:00.000Z');
 });
