@@ -2,6 +2,7 @@ import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
 import { loadBlockedIds } from '@/lib/safety';
+import type { VoteSoFar } from '@/lib/scoring';
 import type { PickedSong } from '@/lib/similar-picks';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -37,6 +38,11 @@ export type RoundDetails = {
   blockedIds: Set<string>;
   /** Who has picked a song so far, while songs are being picked. Null if that can't be loaded. */
   submittedIds: Set<string> | null;
+  /**
+   * The votes in so far while ranking is open, without who cast them. Only for
+   * players who have ranked or who are sitting the round out; empty otherwise.
+   */
+  votesSoFar: VoteSoFar[];
 };
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
@@ -49,7 +55,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     round = await fetchRound();
   }
 
-  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters] =
+  const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters, votesSoFar] =
     await Promise.all([
       supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
@@ -84,6 +90,12 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
             error ? null : (data as { user_id: string }[])
           )
         : Promise.resolve(null),
+      round.status === 'voting'
+        ? // Also a nice-to-have: without it the screen just leaves out the points so far.
+          supabase.rpc('round_votes_so_far', { rid: roundId }).then(({ data, error }) =>
+            error ? [] : (data as VoteSoFar[])
+          )
+        : Promise.resolve([]),
     ]);
 
   return {
@@ -99,6 +111,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     comments,
     blockedIds,
     submittedIds: submitters ? new Set(submitters.map((s) => s.user_id)) : null,
+    votesSoFar,
   };
 }
 

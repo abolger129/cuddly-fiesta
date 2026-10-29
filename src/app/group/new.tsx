@@ -147,7 +147,7 @@ export default function NewGroupScreen() {
         <View style={styles.field}>
           <ThemedText type="smallBold">Guess who picked it</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Players guess who picked each song. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
+            Players guess who picked each song. Each right guess is worth {GUESS_BONUS_POINTS} bonus point.
           </ThemedText>
         </View>
         <Switch value={guessing} onValueChange={setGuessing} accessibilityLabel="Guess who picked it" />

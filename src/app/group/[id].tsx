@@ -313,7 +313,7 @@ export default function GroupScreen() {
             </View>
             <ThemedText type="small" themeColor="textSecondary">
               {group.guessing_enabled
-                ? `While ranking, players guess who picked each song. Right guesses are worth ${GUESS_BONUS_POINTS} bonus points.`
+                ? `While ranking, players guess who picked each song. Each right guess is worth ${GUESS_BONUS_POINTS} bonus point.`
                 : 'Turn on to let players guess who picked each song for bonus points.'}
             </ThemedText>
           </Card>
@@ -360,7 +360,7 @@ export default function GroupScreen() {
             </ThemedText>
             {group.guessing_enabled && (
               <ThemedText type="small">
-                Guess who picked each song while ranking. Right guesses are worth {GUESS_BONUS_POINTS} bonus points.
+                Guess who picked each song while ranking. Each right guess is worth {GUESS_BONUS_POINTS} bonus point.
               </ThemedText>
             )}
             <BannedArtistsNote leagueBans={group.banned_artists} />

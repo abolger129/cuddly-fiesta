@@ -41,7 +41,7 @@ const league: LeagueRecord = {
   guesses: [
     { round_id: 'r1', guesser_id: 'bob', submission_id: 'a', guessed_user_id: 'anna' },
     { round_id: 'r1', guesser_id: 'bob', submission_id: 'c', guessed_user_id: 'cat' },
-    { round_id: 'r1', guesser_id: 'cat', submission_id: 'a', guessed_user_id: 'anna' },
+    { round_id: 'r1', guesser_id: 'cat', submission_id: 'a', guessed_user_id: 'bob' },
   ],
 };
 
@@ -75,7 +75,7 @@ test('awards pick the best song, the most divisive song, the best guesser and th
 test('player stats count wins, places and favourite artists', () => {
   const stats = playerStats([league]);
   const bob = stats.find((s) => s.userId === 'bob');
-  // Bob (6 + 4 guess bonus) and Cat (8 + 2) tie on 10 and share the win.
+  // Bob (6 + 2 guess bonus) and Cat (8, wrong guess) tie on 8 and share the win.
   assert.deepEqual(stats.slice(0, 2).map((s) => [s.userId, s.wins, s.averagePlace]), [
     ['bob', 1, 1],
     ['cat', 1, 1],
