@@ -34,7 +34,14 @@ import { nameOf } from '@/lib/group-data';
 import { findSimilarPicks, loadRoundDetails, type RoundDetails } from '@/lib/round-data';
 import { reportPlayer } from '@/lib/safety';
 import { describeSimilarPicks } from '@/lib/similar-picks';
-import { describeRules, GUESS_BONUS_POINTS, pointsForPosition, scoreGuesses, scoreRound } from '@/lib/scoring';
+import {
+  describeRules,
+  GUESS_BONUS_POINTS,
+  pointsForPosition,
+  scoreGuesses,
+  scoreRound,
+  scoreVotesSoFar,
+} from '@/lib/scoring';
 import { songUrl } from '@/lib/song-links';
 import { supabase } from '@/lib/supabase';
 import { trackLabel } from '@/lib/track-labels';
@@ -60,14 +67,13 @@ export default function RoundScreen() {
   const header = <RoundHeader details={data} onExpired={reload} />;
   const isCreator = data.group.created_by === userId;
 
-  // Ranking uses its own scrolling list so rows can be dragged.
-  if (data.round.status === 'voting') {
+  // Ranking uses its own scrolling list so rows can be dragged. Once your
+  // ranking is in, or if you didn't pick a song, there's nothing to drag.
+  if (data.round.status === 'voting' && data.progress.has_submitted && !data.progress.has_ranked) {
     return (
       <>
         {title}
         <Voting
-          // Start fresh from the saved ranking whenever it changes.
-          key={[...data.rankings, ...data.guesses].map((r) => r.submission_id).join()}
           details={data}
           userId={userId}
           isCreator={isCreator}
@@ -84,6 +90,9 @@ export default function RoundScreen() {
       {header}
       {data.round.status === 'upcoming' && (
         <Upcoming details={data} isCreator={isCreator} onChanged={reload} />
+      )}
+      {data.round.status === 'voting' && (
+        <VotedOrSittingOut details={data} isCreator={isCreator} onChanged={reload} />
       )}
       {data.round.status === 'submitting' && (
         <Submitting details={data} isCreator={isCreator} onChanged={reload} />
@@ -400,12 +409,9 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-/** Songs to rank: everyone's but yours, in your saved order or shuffled. */
-function initialOrder({ songs, rankings }: RoundDetails): RoundSong[] {
-  const others = songs.filter((s) => !s.is_mine);
-  if (rankings.length === 0) return shuffle(others);
-  const position = new Map(rankings.map((r) => [r.submission_id, r.position]));
-  return [...others].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
+/** Songs to rank: everyone's but yours, shuffled. */
+function initialOrder({ songs }: RoundDetails): RoundSong[] {
+  return shuffle(songs.filter((s) => !s.is_mine));
 }
 
 function Voting({
@@ -415,7 +421,7 @@ function Voting({
   onChanged,
   header,
 }: StageProps & { userId: string; header: ReactElement }) {
-  const { round, group, progress, members } = details;
+  const { round, group, members } = details;
   const [order, setOrder] = useState(() => initialOrder(details));
   const [guesses, setGuesses] = useState(
     () => new Map(details.guesses.map((g) => [g.submission_id, g.guessed_user_id]))
@@ -437,6 +443,14 @@ function Voting({
   }
 
   async function save() {
+    const ok = await confirmChoice(
+      'Lock in your ranking?',
+      group.guessing_enabled
+        ? "Once it's saved you can't change your ranking, guesses or comments."
+        : "Once it's saved you can't change your ranking or comments.",
+      'Lock it in'
+    );
+    if (!ok) return;
     setBusy(true);
     // Guesses and comments go first: saving the last ranking finishes the round, which closes both.
     if (group.guessing_enabled) {
@@ -468,13 +482,6 @@ function Voting({
     if (!alertOnError('Could not save your ranking', error)) onChanged();
   }
 
-  async function endVoting() {
-    setBusy(true);
-    const { error } = await supabase.rpc('advance_round', { rid: round.id });
-    setBusy(false);
-    if (!alertOnError('Could not end voting', error)) onChanged();
-  }
-
   return (
     <ThemedView style={styles.fill}>
       <RankingList
@@ -488,9 +495,8 @@ function Voting({
             {header}
             <PlaylistCard details={details} />
             <ThemedText themeColor="textSecondary">
-              {progress.has_ranked
-                ? `Your ranking is saved. You can still change it until everyone has voted${round.vote_deadline ? ' or time runs out' : ''}.`
-                : 'Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it.'}
+              Hold a song and drag it to rank it. Put your favourite at the top. Tap a song to hear it.
+              Once you save, your ranking is locked in and you&apos;ll see the points so far.
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {describeRules(details.group)} Tap Add a comment under any song to say something about
@@ -506,8 +512,8 @@ function Voting({
                 <View style={styles.header}>
                   <SectionLabel>Who picked it?</SectionLabel>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Guess who picked each song. Every right guess is worth {GUESS_BONUS_POINTS} bonus
-                    points, revealed when the round ends.
+                    Guess who picked each song. Each right guess is worth {GUESS_BONUS_POINTS} bonus
+                    point, revealed when the round ends.
                   </ThemedText>
                 </View>
                 {order.map((song) => (
@@ -528,15 +534,7 @@ function Voting({
               </>
             )}
             <Button
-              title={
-                progress.has_ranked
-                  ? group.guessing_enabled
-                    ? 'Update my ranking and guesses'
-                    : 'Update my ranking'
-                  : group.guessing_enabled
-                    ? 'Save my ranking and guesses'
-                    : 'Save my ranking'
-              }
+              title={group.guessing_enabled ? 'Lock in my ranking and guesses' : 'Lock in my ranking'}
               onPress={save}
               loading={busy}
               disabled={order.length === 0}
@@ -546,24 +544,105 @@ function Voting({
                 Your song, {mySong.track_name}, is left out because you can&apos;t rank your own pick.
               </ThemedText>
             )}
-            <ThemedText type="small" themeColor="textSecondary">
-              {progress.ranked_count} of {progress.member_count} players have ranked.
-            </ThemedText>
-            {progress.member_count - progress.ranked_count - (progress.has_ranked ? 0 : 1) > 0 && (
-              <NudgeButton round={round} onChanged={onChanged} />
-            )}
-            {isCreator && progress.ranked_count < progress.member_count && (
-              <Button
-                title="End voting now"
-                variant="secondary"
-                onPress={endVoting}
-                loading={busy}
-              />
-            )}
+            <VotingProgress details={details} isCreator={isCreator} onChanged={onChanged} />
           </View>
         }
       />
     </ThemedView>
+  );
+}
+
+/** Players who can vote this round: those who picked a song and are still in the league. */
+function voterCount({ progress }: RoundDetails): number {
+  // Before the migration that adds it, everyone who picked a song can vote.
+  return progress.voter_count ?? progress.submitted_count;
+}
+
+/** How many players have ranked, with a nudge and the host's "End voting now". */
+function VotingProgress({ details, isCreator, onChanged }: StageProps) {
+  const { round, progress } = details;
+  const [ending, setEnding] = useState(false);
+  const voters = voterCount(details);
+  const stillToRank = voters - progress.ranked_count;
+  const othersToRank = stillToRank - (progress.has_submitted && !progress.has_ranked ? 1 : 0);
+
+  async function endVoting() {
+    setEnding(true);
+    const { error } = await supabase.rpc('advance_round', { rid: round.id });
+    setEnding(false);
+    if (!alertOnError('Could not end voting', error)) onChanged();
+  }
+
+  return (
+    <>
+      <ThemedText type="small" themeColor="textSecondary">
+        {progress.ranked_count} of {voters} players have ranked. Only players who picked a song this round can vote.
+      </ThemedText>
+      {othersToRank > 0 && <NudgeButton round={round} onChanged={onChanged} />}
+      {isCreator && stillToRank > 0 && (
+        <Button title="End voting now" variant="secondary" onPress={endVoting} loading={ending} />
+      )}
+    </>
+  );
+}
+
+/** While ranking is open, for players who've locked in their ranking or didn't pick a song. */
+function VotedOrSittingOut({ details, isCreator, onChanged }: StageProps) {
+  const { progress, songs, votesSoFar, group } = details;
+  const theme = useTheme();
+  const points = scoreVotesSoFar(votesSoFar, group);
+  const standings = [...songs].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
+
+  return (
+    <>
+      <PlaylistCard details={details} />
+      <Card>
+        <ThemedText type="smallBold">
+          {progress.has_ranked ? 'Your ranking is locked in.' : "You didn't pick a song this round, so you're sitting it out."}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {progress.has_ranked
+            ? "Here are the points so far. Who picked what is revealed when everyone's voted."
+            : "Only players who picked a song can vote. You're back in next round. Meanwhile, here's how the songs are doing."}
+        </ThemedText>
+      </Card>
+      <SectionLabel>Points so far</SectionLabel>
+      <View>
+        {standings.map((s, i) => (
+          <View key={s.id} style={[styles.credit, { borderBottomColor: theme.rule }]}>
+            <SongRow
+              trackName={s.track_name}
+              artistName={s.artist_name}
+              albumArtUrl={s.album_art_url}
+              leading={<TrackNumber label={trackLabel(i, standings.length)} />}
+              credit={
+                s.is_mine ? (
+                  <ThemedText type="mono" themeColor="textSecondary">
+                    your pick
+                  </ThemedText>
+                ) : undefined
+              }
+              trailing={
+                <View style={styles.points}>
+                  <ThemedText type="subtitle" style={styles.pointsNumber}>
+                    {points.get(s.id) ?? 0}
+                  </ThemedText>
+                  <ThemedText type="mono" themeColor="textSecondary">
+                    pts
+                  </ThemedText>
+                </View>
+              }
+            />
+          </View>
+        ))}
+      </View>
+      {group.guessing_enabled && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Guess bonuses (+{GUESS_BONUS_POINTS} per right guess) are added when the round ends.
+        </ThemedText>
+      )}
+      <VotingProgress details={details} isCreator={isCreator} onChanged={onChanged} />
+    </>
   );
 }
 
@@ -729,7 +808,7 @@ function GuessReveal({
       {mine && (
         <ThemedText type="small">
           {mine.guessed_user_id === pickedBy
-            ? `You guessed right! +${GUESS_BONUS_POINTS} pts`
+            ? `You guessed right! +${GUESS_BONUS_POINTS} pt`
             : `You guessed ${nameOf(members, mine.guessed_user_id)}`}
         </ThemedText>
       )}

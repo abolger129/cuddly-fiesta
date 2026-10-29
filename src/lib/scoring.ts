@@ -20,9 +20,9 @@ import type { Group, Guess, Ranking, Submission } from './types';
  *   bottom songs already lose points then.
  *
  * In groups with guessing turned on, each correct guess at who picked a song
- * earns the guesser GUESS_BONUS_POINTS.
+ * earns the guesser GUESS_BONUS_POINTS (one point).
  */
-export const GUESS_BONUS_POINTS = 2;
+export const GUESS_BONUS_POINTS = 1;
 
 /** A league's ranking rules. */
 export type ScoringRules = Pick<Group, 'points_cap' | 'downvotes' | 'negative_points'>;
@@ -72,6 +72,18 @@ export function scoreRound(rankings: Ranking[], rules: ScoringRules = DEFAULT_RU
   for (const r of rankings) {
     const n = songsRankedByVoter.get(r.voter_id) ?? 0;
     points.set(r.submission_id, (points.get(r.submission_id) ?? 0) + pointsForPosition(r.position, n, rules));
+  }
+  return points;
+}
+
+/** One song's place in one voter's ranking, with the voter left out. */
+export type VoteSoFar = { submission_id: string; position: number; songs_ranked: number };
+
+/** Points per submission id from the votes in so far, while a round is still being voted on. */
+export function scoreVotesSoFar(votes: VoteSoFar[], rules: ScoringRules = DEFAULT_RULES): Map<string, number> {
+  const points = new Map<string, number>();
+  for (const v of votes) {
+    points.set(v.submission_id, (points.get(v.submission_id) ?? 0) + pointsForPosition(v.position, v.songs_ranked, rules));
   }
   return points;
 }

@@ -102,6 +102,8 @@ export type CategorySuggestion = {
 export type RoundProgress = {
   member_count: number;
   submitted_count: number;
+  /** Players who picked a song this round. Only they can rank. */
+  voter_count: number;
   ranked_count: number;
   has_submitted: boolean;
   has_ranked: boolean;

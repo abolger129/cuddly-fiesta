@@ -72,16 +72,15 @@ async function findYourTurns(
   openRounds: (Pick<Round, 'id' | 'status'> & { groupId: string })[],
   userId: string
 ): Promise<Set<string>> {
-  const picking = openRounds.filter((r) => r.status === 'submitting').map((r) => r.id);
   const ranking = openRounds.filter((r) => r.status === 'voting').map((r) => r.id);
   // You only see your own songs and rankings in open rounds, so these are yours.
   const [picked, ranked] = await Promise.all([
-    picking.length
+    openRounds.length
       ? supabase
           .from('submissions')
           .select('round_id')
           .eq('user_id', userId)
-          .in('round_id', picking)
+          .in('round_id', openRounds.map((r) => r.id))
           .then(check<{ round_id: string }[]>)
       : [],
     ranking.length
@@ -93,6 +92,12 @@ async function findYourTurns(
           .then(check<{ round_id: string }[]>)
       : [],
   ]);
-  const done = new Set([...picked, ...ranked].map((r) => r.round_id));
-  return new Set(openRounds.filter((r) => !done.has(r.id)).map((r) => r.groupId));
+  const pickedIds = new Set(picked.map((r) => r.round_id));
+  const rankedIds = new Set(ranked.map((r) => r.round_id));
+  // Only players who picked a song can rank, so a ranking round you sat out isn't your turn.
+  return new Set(
+    openRounds
+      .filter((r) => (r.status === 'submitting' ? !pickedIds.has(r.id) : pickedIds.has(r.id) && !rankedIds.has(r.id)))
+      .map((r) => r.groupId)
+  );
 }
