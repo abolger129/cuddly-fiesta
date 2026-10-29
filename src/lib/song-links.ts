@@ -24,3 +24,20 @@ export function songListText(title: string, songs: ListedSong[]): string {
   });
   return [title, '', ...lines].join('\n');
 }
+
+/**
+ * Songs from several rounds, round by round and each round in the order it was
+ * shuffled into when ranking opened (never the order the songs were picked).
+ * The league playlist uses the same order.
+ */
+export function inPlayOrder<T extends Pick<Submission, 'id' | 'round_id' | 'play_order'>>(
+  songs: T[],
+  roundNumber: Map<string, number>
+): T[] {
+  return [...songs].sort(
+    (a, b) =>
+      (roundNumber.get(a.round_id) ?? 0) - (roundNumber.get(b.round_id) ?? 0) ||
+      (a.play_order ?? Infinity) - (b.play_order ?? Infinity) ||
+      a.id.localeCompare(b.id)
+  );
+}

@@ -17,12 +17,13 @@ import { unregisterPushNotifications } from '@/lib/notifications';
 import { unblockPlayer } from '@/lib/safety';
 import { revokeAppleSignIn } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
+import { PROFILE_FIELDS, type Profile } from '@/lib/types';
 
 export default function ProfileScreen() {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [name, setName] = useState('');
-  const [doodle, setDoodle] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [deleting, setDeleting] = useState(false);
@@ -45,10 +46,10 @@ export default function ProfileScreen() {
       if (!userId) return;
       supabase
         .from('profiles')
-        .select('avatar_doodle')
+        .select(PROFILE_FIELDS)
         .eq('id', userId)
         .single()
-        .then(({ data }) => setDoodle(data?.avatar_doodle ?? null));
+        .then(({ data }) => setAvatar(data ?? {}));
     }, [userId])
   );
 
@@ -111,11 +112,11 @@ export default function ProfileScreen() {
         accessibilityRole="button"
         onPress={() => router.push('/avatar')}
         style={({ pressed }) => [styles.avatarRow, pressed && styles.pressed]}>
-        {userId && <Avatar profile={{ id: userId, display_name: name, avatar_doodle: doodle }} size={72} />}
+        {userId && <Avatar profile={{ ...avatar, id: userId, display_name: name }} size={72} />}
         <View style={styles.grow}>
-          <ThemedText type="smallBold">{doodle ? 'Redraw your avatar' : 'Draw your avatar'}</ThemedText>
+          <ThemedText type="smallBold">{avatar.avatar_doodle ? 'Redraw your avatar' : 'Draw your avatar'}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Draw yourself. Stick figures encouraged.
+            Draw yourself, then pick your colors and a sticker.
           </ThemedText>
         </View>
       </Pressable>

@@ -177,7 +177,10 @@ async function roundPlaylist(roundId: string, userId: string | null) {
     .select('spotify_track_id')
     .eq('round_id', roundId)
     .not('spotify_track_id', 'is', null)
-    .order('created_at');
+    // The order the round's songs were shuffled into when ranking opened, so
+    // the playlist doesn't give away who picked first.
+    .order('play_order', { nullsFirst: false })
+    .order('id');
   const trackIds = (songs ?? []).map((s) => s.spotify_track_id as string);
   if (trackIds.length === 0) return json({ url: null });
 
@@ -202,13 +205,17 @@ async function leaguePlaylist(groupId: string, userId: string | null) {
 
   const { data: songs } = await admin
     .from('submissions')
-    .select('spotify_track_id, created_at, rounds!inner(group_id, round_number, status)')
+    .select('id, spotify_track_id, play_order, rounds!inner(group_id, round_number, status)')
     .eq('rounds.group_id', groupId)
     .eq('rounds.status', 'finished')
     .not('spotify_track_id', 'is', null);
   const roundOf = (s: { rounds: unknown }) => (s.rounds as { round_number: number }).round_number;
+  // Round by round, each in its shuffled order (never the order songs were picked).
   const inOrder = [...(songs ?? [])].sort(
-    (a, b) => roundOf(a) - roundOf(b) || a.created_at.localeCompare(b.created_at)
+    (a, b) =>
+      roundOf(a) - roundOf(b) ||
+      (a.play_order ?? Infinity) - (b.play_order ?? Infinity) ||
+      a.id.localeCompare(b.id)
   );
   const trackIds = [...new Set(inOrder.map((s) => s.spotify_track_id as string))];
   if (trackIds.length === 0) return json({ url: group.playlist_url });

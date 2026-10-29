@@ -86,3 +86,33 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/**
+ * Name colors for players, so you can tell who said what at a glance. Each pair is the
+ * light and dark mode shade, both readable as text on the page background.
+ */
+export const PlayerColors = [
+  { light: '#2B4FE0', dark: '#7D97FF' },
+  { light: '#C2361C', dark: '#FF8A70' },
+  { light: '#0A7A61', dark: '#3FD1AC' },
+  { light: '#6A2FD0', dark: '#B58CFF' },
+  { light: '#B8245A', dark: '#FF7AA8' },
+  { light: '#146A85', dark: '#5CC4E6' },
+  { light: '#9A5200', dark: '#F2B04A' },
+  { light: '#7A4E22', dark: '#D9A877' },
+] as const;
+
+/**
+ * A player's name color within a league. Players are numbered by id, so everyone in a
+ * league of up to eight gets a different color and keeps it from round to round.
+ */
+export function playerColor(playerId: string, playerIds: string[], scheme: 'light' | 'dark'): string {
+  let slot = [...playerIds].sort().indexOf(playerId);
+  if (slot === -1) {
+    // Someone who has left the league: fall back to a color from their id.
+    let hash = 0;
+    for (let i = 0; i < playerId.length; i++) hash = (hash * 31 + playerId.charCodeAt(i)) | 0;
+    slot = Math.abs(hash);
+  }
+  return PlayerColors[slot % PlayerColors.length][scheme];
+}
