@@ -16,7 +16,10 @@ import { useAuth } from '@/lib/auth';
 import {
   AVATAR_BACKGROUNDS,
   AVATAR_INKS,
+  BRUSHES,
+  DEFAULT_BRUSH,
   DEFAULT_STICKER_SPOT,
+  DOODLE_SIZE,
   STICKERS,
   isLightColor,
   type Point,
@@ -48,6 +51,7 @@ export default function AvatarScreen() {
   // undefined until the profile has loaded, so the pad starts from the saved doodle.
   const [doodle, setDoodle] = useState<string | null | undefined>(undefined);
   const [style, setStyle] = useState<Style>({ bg: null, ink: null, sticker: null, spot: DEFAULT_STICKER_SPOT });
+  const [brush, setBrush] = useState<number>(DEFAULT_BRUSH);
   const [movingSticker, setMovingSticker] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -108,6 +112,7 @@ export default function AvatarScreen() {
               onChange={setDoodle}
               look={look}
               onMoveSticker={movingSticker ? (spot) => setStyle((s) => ({ ...s, spot })) : undefined}
+              brush={brush}
               size={padSize}
             />
           )}
@@ -132,6 +137,22 @@ export default function AvatarScreen() {
               color={c}
               selected={look.ink === c}
               onPress={() => setStyle((s) => ({ ...s, ink: c }))}
+            />
+          ))}
+        </Picker>
+        <Picker label="Brush">
+          {BRUSHES.map((b) => (
+            <BrushChoice
+              key={b.id}
+              label={b.label}
+              // The dot is as wide as the line will be on the pad.
+              dot={(b.width * padSize) / DOODLE_SIZE}
+              look={look}
+              selected={brush === b.width}
+              onPress={() => {
+                setMovingSticker(false);
+                setBrush(b.width);
+              }}
             />
           ))}
         </Picker>
@@ -211,6 +232,35 @@ function Swatch({
             {text}
           </ThemedText>
         )}
+      </View>
+    </Pressable>
+  );
+}
+
+function BrushChoice({
+  label,
+  dot,
+  look,
+  selected,
+  onPress,
+}: {
+  label: string;
+  dot: number;
+  look: { background: string; ink: string };
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const size = Math.min(SWATCH - 6, Math.max(3, dot));
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} brush`}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.ring, { borderColor: selected ? theme.text : 'transparent' }]}>
+      <View style={[styles.swatch, { backgroundColor: look.background, borderColor: theme.rule }]}>
+        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: look.ink }} />
       </View>
     </Pressable>
   );
