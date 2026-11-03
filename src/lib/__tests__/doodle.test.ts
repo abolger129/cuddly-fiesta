@@ -3,11 +3,14 @@ import { test } from 'node:test';
 
 import {
   AVATAR_BACKGROUNDS,
+  cleanDoodlePath,
   doodleStrokeWidth,
   initialsOf,
   isHexColor,
   isLightColor,
   isSticker,
+  limitDoodlePath,
+  MAX_DOODLE_LENGTH,
   strokesToPath,
 } from '../doodle.ts';
 
@@ -76,4 +79,26 @@ test('light backgrounds get dark ink', () => {
   assert.ok(!isLightColor('#2B4FE0'));
   assert.ok(!isLightColor('#15151B'));
   for (const bg of AVATAR_BACKGROUNDS) assert.equal(typeof isLightColor(bg), 'boolean');
+});
+
+test('a doodle cut off partway through a command keeps only the whole commands', () => {
+  assert.equal(cleanDoodlePath('M10 10L20 20L3'), 'M10 10L20 20');
+  assert.equal(cleanDoodlePath('M10 10L20 20L'), 'M10 10L20 20');
+  assert.equal(cleanDoodlePath('M10 10L20.'), 'M10 10');
+  assert.equal(cleanDoodlePath('M10 10L20 20M5 5L6 6'), 'M10 10L20 20M5 5L6 6');
+});
+
+test('a doodle that starts partway through still starts with a move', () => {
+  assert.equal(cleanDoodlePath('0 5L10 10L20 20'), 'M10 10L20 20');
+  assert.equal(cleanDoodlePath('MNaN NaNL1 2'), 'M1 2');
+  assert.equal(cleanDoodlePath(''), '');
+  assert.equal(cleanDoodlePath(null), '');
+});
+
+test('long doodles are cut at the end of a whole command', () => {
+  const long = Array.from({ length: 2000 }, (_, i) => `${i === 0 ? 'M' : 'L'}${i % 100}.5 ${i % 97}.5`).join('');
+  const limited = limitDoodlePath(long);
+  assert.ok(limited.length <= MAX_DOODLE_LENGTH);
+  assert.equal(cleanDoodlePath(limited), limited);
+  assert.ok(long.startsWith(limited));
 });

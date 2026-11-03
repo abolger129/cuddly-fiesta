@@ -36,6 +36,36 @@ export function strokesToPath(strokes: Point[][], padSize: number): string {
     .join('');
 }
 
+const COMMAND = /([ML])\s*(-?\d*\.?\d+)[\s,]+(-?\d*\.?\d+)/g;
+
+/**
+ * Keep only whole "M x y" / "L x y" commands with real numbers, starting with a move.
+ * iPhones close the app outright on path data that ends partway through a command
+ * (react-native-svg reads past the end of the text), so every saved doodle goes
+ * through this before it is drawn. Browsers just stop drawing at the bad part.
+ */
+export function cleanDoodlePath(path: string | null | undefined): string {
+  if (!path) return '';
+  const parts: string[] = [];
+  for (const [, cmd, x, y] of path.matchAll(COMMAND)) {
+    const nx = Number(x);
+    const ny = Number(y);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) continue;
+    // A line needs somewhere to start from.
+    parts.push(`${parts.length === 0 ? 'M' : cmd}${nx} ${ny}`);
+  }
+  return parts.join('');
+}
+
+/** Cut a doodle down to what the database keeps, at the end of a whole command. */
+export function limitDoodlePath(path: string): string {
+  const clean = cleanDoodlePath(path);
+  if (clean.length <= MAX_DOODLE_LENGTH) return clean;
+  const cut = clean.slice(0, MAX_DOODLE_LENGTH + 1);
+  const lastCommand = Math.max(cut.lastIndexOf('M'), cut.lastIndexOf('L'));
+  return cleanDoodlePath(cut.slice(0, lastCommand));
+}
+
 function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
