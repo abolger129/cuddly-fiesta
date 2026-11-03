@@ -7,7 +7,7 @@ import { DoodlePath, type AvatarLook } from '@/components/avatar';
 import { StickerArt } from '@/components/avatar-stickers';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { DOODLE_SIZE, MAX_DOODLE_LENGTH, strokesToPath, type Point } from '@/lib/doodle';
+import { DOODLE_SIZE, limitDoodlePath, strokesToPath, type Point } from '@/lib/doodle';
 
 type DoodlePadProps = {
   /** The doodle drawn so far, as saved. */
@@ -40,7 +40,8 @@ export function DoodlePad({ initial, onChange, look, onMoveSticker, size = 240 }
 
   function emit() {
     const drawn = (baseRef.current ?? '') + strokesToPath(strokesRef.current, size);
-    onChange(drawn ? drawn.slice(0, MAX_DOODLE_LENGTH) : null);
+    const limited = drawn ? limitDoodlePath(drawn) : '';
+    onChange(limited || null);
   }
 
   function addPoint(e: GestureResponderEvent, newStroke: boolean) {

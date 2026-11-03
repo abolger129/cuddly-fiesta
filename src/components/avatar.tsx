@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -6,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts, playerColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  cleanDoodlePath,
   DEFAULT_INK,
   DEFAULT_STICKER_SPOT,
   DOODLE_SIZE,
@@ -130,9 +132,12 @@ export function DoodleArt({ path, size, look }: { path: string; size: number; lo
 
 /** Doodle path data inside an Svg on the 100 unit canvas. Lines get thicker as the avatar gets smaller. */
 export function DoodlePath({ path, size, color }: { path: string; size: number; color: string }) {
+  // Saved doodles can be cut off mid-command, which closes the app on iPhones. Draw only the whole commands.
+  const d = useMemo(() => cleanDoodlePath(path), [path]);
+  if (!d) return null;
   return (
     <Path
-      d={path}
+      d={d}
       fill="none"
       stroke={color}
       strokeWidth={doodleStrokeWidth(size)}
