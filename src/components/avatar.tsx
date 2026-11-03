@@ -7,10 +7,10 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts, playerColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  cleanDoodlePath,
   DEFAULT_INK,
   DEFAULT_STICKER_SPOT,
   DOODLE_SIZE,
+  doodleLines,
   doodleStrokeWidth,
   initialsOf,
   isHexColor,
@@ -130,20 +130,28 @@ export function DoodleArt({ path, size, look }: { path: string; size: number; lo
   );
 }
 
-/** Doodle path data inside an Svg on the 100 unit canvas. Lines get thicker as the avatar gets smaller. */
+/**
+ * Doodle path data inside an Svg on the 100 unit canvas, one line per brush size.
+ * Lines get thicker as the avatar gets smaller.
+ */
 export function DoodlePath({ path, size, color }: { path: string; size: number; color: string }) {
-  // Saved doodles can be cut off mid-command, which closes the app on iPhones. Draw only the whole commands.
-  const d = useMemo(() => cleanDoodlePath(path), [path]);
-  if (!d) return null;
+  // Saved doodles can be cut off mid-command, which closes the app on iPhones. Draw only the whole
+  // commands, and never hand the brush marks to the renderer.
+  const lines = useMemo(() => doodleLines(path), [path]);
   return (
-    <Path
-      d={d}
-      fill="none"
-      stroke={color}
-      strokeWidth={doodleStrokeWidth(size)}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <>
+      {lines.map((line, i) => (
+        <Path
+          key={i}
+          d={line.d}
+          fill="none"
+          stroke={color}
+          strokeWidth={doodleStrokeWidth(size, line.width)}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </>
   );
 }
 

@@ -7,7 +7,7 @@ import { DoodlePath, type AvatarLook } from '@/components/avatar';
 import { StickerArt } from '@/components/avatar-stickers';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { DOODLE_SIZE, limitDoodlePath, strokesToPath, type Point } from '@/lib/doodle';
+import { DEFAULT_BRUSH, DOODLE_SIZE, joinDoodles, limitDoodlePath, strokesToPath, type Point, type Stroke } from '@/lib/doodle';
 
 type DoodlePadProps = {
   /** The doodle drawn so far, as saved. */
@@ -18,20 +18,22 @@ type DoodlePadProps = {
   look: AvatarLook;
   /** When set, touches move the sticker instead of drawing. Called with its new spot on the canvas. */
   onMoveSticker?: (spot: Point) => void;
+  /** Line width for new strokes, on the 100 unit canvas. */
+  brush?: number;
   size?: number;
 };
 
 /** A square to draw your avatar on with a finger. Undo takes back the last stroke. */
-export function DoodlePad({ initial, onChange, look, onMoveSticker, size = 240 }: DoodlePadProps) {
+export function DoodlePad({ initial, onChange, look, onMoveSticker, brush = DEFAULT_BRUSH, size = 240 }: DoodlePadProps) {
   const theme = useTheme();
   // A saved doodle can't be split back into strokes, so it stays underneath as a starting point.
   const [base, setBase] = useState(initial);
-  const [strokes, setStrokes] = useState<Point[][]>([]);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
   // Touch events arrive faster than renders, so the handlers work from refs that mirror the state.
-  const strokesRef = useRef<Point[][]>([]);
+  const strokesRef = useRef<Stroke[]>([]);
   const baseRef = useRef(initial);
 
-  function update(next: Point[][], nextBase: string | null) {
+  function update(next: Stroke[], nextBase: string | null) {
     strokesRef.current = next;
     baseRef.current = nextBase;
     setStrokes(next);
@@ -39,7 +41,7 @@ export function DoodlePad({ initial, onChange, look, onMoveSticker, size = 240 }
   }
 
   function emit() {
-    const drawn = (baseRef.current ?? '') + strokesToPath(strokesRef.current, size);
+    const drawn = joinDoodles(baseRef.current, strokesToPath(strokesRef.current, size));
     const limited = drawn ? limitDoodlePath(drawn) : '';
     onChange(limited || null);
   }
@@ -54,7 +56,10 @@ export function DoodlePad({ initial, onChange, look, onMoveSticker, size = 240 }
     }
     const all = strokesRef.current;
     const last = all[all.length - 1];
-    const next = newStroke || !last ? [...all, [point]] : [...all.slice(0, -1), [...last, point]];
+    const next =
+      newStroke || !last
+        ? [...all, { points: [point], brush }]
+        : [...all.slice(0, -1), { ...last, points: [...last.points, point] }];
     update(next, baseRef.current);
   }
 
