@@ -9,8 +9,10 @@ import { SectionLabel } from '@/components/section-label';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { showAlert } from '@/lib/alert';
 import { useAuth } from '@/lib/auth';
 import { confirmDestructive } from '@/lib/confirm';
+import { sendFeedback } from '@/lib/error-log';
 import { alertOnError } from '@/lib/errors';
 import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { unregisterPushNotifications } from '@/lib/notifications';
@@ -168,6 +170,15 @@ export default function ProfileScreen() {
           </ThemedText>
         </Pressable>
       </View>
+      <Button
+        title="Send feedback"
+        variant="secondary"
+        onPress={async () => {
+          if (!(await sendFeedback())) {
+            showAlert('No email app', 'Email thegauntletapp@gmail.com and we\'ll take a look.');
+          }
+        }}
+      />
       <Button title="Delete account" variant="secondary" onPress={deleteAccount} loading={deleting} />
     </Screen>
   );

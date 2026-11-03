@@ -1,6 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
+import { logError } from '@/lib/error-log';
+
 /**
  * Loads data when the screen comes into focus, and again on reload().
  * The loader should throw on failure; the message ends up in `error`.
@@ -16,6 +18,7 @@ export function useLoader<T>(load: () => Promise<T>) {
       setData(await load());
       setError(null);
     } catch (e) {
+      logError(e, 'loading a screen');
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
