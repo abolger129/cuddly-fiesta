@@ -1,7 +1,7 @@
 import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
-import { withGroupDefaults, withRoundDefaults } from '@/lib/group-data';
+import { closeExpiredRounds, profilesOf, withGroupDefaults, withRoundDefaults } from '@/lib/group-data';
 import { loadBlockedIds } from '@/lib/safety';
 import type { VoteSoFar } from '@/lib/scoring';
 import type { PickedSong } from '@/lib/similar-picks';
@@ -57,8 +57,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     supabase.from('rounds').select('*').eq('id', roundId).single().then(check<Round>).then(withRoundDefaults);
   let round = await fetchRound();
   // Time is up: move the round on now rather than waiting for the scheduled job.
-  if (isPastDeadline(round, new Date())) {
-    await supabase.rpc('close_expired_rounds', { gid: round.group_id }).then(check);
+  if (isPastDeadline(round, new Date()) && (await closeExpiredRounds(round.group_id))) {
     round = await fetchRound();
   }
 
@@ -82,7 +81,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
         .from('group_members')
         .select(`profiles (${PROFILE_FIELDS})`)
         .eq('group_id', round.group_id)
-        .then(check<{ profiles: Profile }[]>),
+        .then(check<{ profiles: Profile | null }[]>),
       supabase.from('guesses').select('*').eq('round_id', roundId).then(check<Guess[]>),
       supabase
         .from('song_comments')
@@ -120,7 +119,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
     rankings,
     submissions,
     guesses,
-    members: maskBlocked(memberRows.map((m) => m.profiles), blockedIds),
+    members: maskBlocked(profilesOf(memberRows), blockedIds),
     comments,
     blockedIds,
     submittedIds: submitters ? new Set(submitters.map((s) => s.user_id)) : null,

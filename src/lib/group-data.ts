@@ -1,6 +1,7 @@
 import { maskBlocked, withoutBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
+import { logError } from '@/lib/error-log';
 import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
 import { PROFILE_FIELDS } from '@/lib/types';
@@ -35,7 +36,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .select(`profiles (${PROFILE_FIELDS})`)
       .eq('group_id', groupId)
       .order('joined_at')
-      .then(check<{ profiles: Profile }[]>),
+      .then(check<{ profiles: Profile | null }[]>),
     fetchRounds(),
     supabase
       .from('category_suggestions')
@@ -49,8 +50,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
   // Time is up: move rounds on now rather than waiting for the scheduled job.
   let rounds = roundsAsLoaded;
   const now = new Date();
-  if (rounds.some((r) => isPastDeadline(r, now))) {
-    await supabase.rpc('close_expired_rounds', { gid: groupId }).then(check);
+  if (rounds.some((r) => isPastDeadline(r, now)) && (await closeExpiredRounds(groupId))) {
     rounds = await fetchRounds();
   }
 
@@ -67,7 +67,7 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
 
   return {
     group,
-    members: maskBlocked(memberRows.map((m) => m.profiles), blockedIds),
+    members: maskBlocked(profilesOf(memberRows), blockedIds),
     rounds,
     submissions,
     rankings,
@@ -87,6 +87,26 @@ export function withGroupDefaults(group: Group): Group {
 
 export function withRoundDefaults(round: Round): Round {
   return { ...round, banned_artists: round.banned_artists ?? [] };
+}
+
+/**
+ * Ask the database to move on rounds whose time is up. Best effort: if it fails
+ * (say a hand-run update is missing) the screen still opens with the rounds as
+ * they are, and the scheduled job tries again within five minutes.
+ * Returns whether anything may have changed.
+ */
+export async function closeExpiredRounds(groupId: string): Promise<boolean> {
+  const { error } = await supabase.rpc('close_expired_rounds', { gid: groupId });
+  if (error) {
+    logError(new Error(`close_expired_rounds: ${error.message}`), 'closeExpiredRounds');
+    return false;
+  }
+  return true;
+}
+
+/** The players from a group_members query, skipping any whose profile didn't come back. */
+export function profilesOf<T extends { profiles: Profile | null }>(rows: T[]): Profile[] {
+  return rows.map((m) => m.profiles).filter((p): p is Profile => !!p && typeof p.id === 'string');
 }
 
 export function nameOf(members: Profile[], userId: string): string {

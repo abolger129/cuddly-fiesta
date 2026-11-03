@@ -678,6 +678,16 @@ function VotingProgress({ details, isCreator, onChanged }: StageProps) {
       {isCreator && stillToRank > 0 && (
         <Button title="End voting now" variant="secondary" onPress={endVoting} loading={ending} />
       )}
+      {isCreator && stillToRank <= 0 && (
+        // Everyone who can still vote has, but the round is open: someone who picked a song
+        // left before ranking. Let the host close it rather than leave it stuck.
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            Everyone still in the league has ranked. Finish the round to see the results.
+          </ThemedText>
+          <Button title="Finish the round" onPress={endVoting} loading={ending} />
+        </>
+      )}
     </>
   );
 }
