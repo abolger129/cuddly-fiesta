@@ -1,6 +1,7 @@
 import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
 import { isPastDeadline } from '@/lib/deadlines';
+import { withGroupDefaults, withRoundDefaults } from '@/lib/group-data';
 import { loadBlockedIds } from '@/lib/safety';
 import type { VoteSoFar } from '@/lib/scoring';
 import type { PickedSong } from '@/lib/similar-picks';
@@ -53,7 +54,7 @@ export type RoundDetails = {
 
 export async function loadRoundDetails(roundId: string, userId: string): Promise<RoundDetails> {
   const fetchRound = () =>
-    supabase.from('rounds').select('*').eq('id', roundId).single().then(check<Round>);
+    supabase.from('rounds').select('*').eq('id', roundId).single().then(check<Round>).then(withRoundDefaults);
   let round = await fetchRound();
   // Time is up: move the round on now rather than waiting for the scheduled job.
   if (isPastDeadline(round, new Date())) {
@@ -63,7 +64,7 @@ export async function loadRoundDetails(roundId: string, userId: string): Promise
 
   const [group, progressRows, mySubmission, songs, rankings, submissions, memberRows, guesses, comments, blockedIds, submitters, votesSoFar, voterStatus] =
     await Promise.all([
-      supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>),
+      supabase.from('groups').select('*').eq('id', round.group_id).single().then(check<Group>).then(withGroupDefaults),
       supabase.rpc('round_progress', { rid: roundId }).then(check<RoundProgress[]>),
       supabase
         .from('submissions')

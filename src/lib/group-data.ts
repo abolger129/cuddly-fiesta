@@ -26,9 +26,10 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
       .select('*')
       .eq('group_id', groupId)
       .order('round_number')
-      .then(check<Round[]>);
+      .then(check<Round[]>)
+      .then((rows) => rows.map(withRoundDefaults));
   const [group, memberRows, roundsAsLoaded, suggestions, blockedIds] = await Promise.all([
-    supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>),
+    supabase.from('groups').select('*').eq('id', groupId).single().then(check<Group>).then(withGroupDefaults),
     supabase
       .from('group_members')
       .select(`profiles (${PROFILE_FIELDS})`)
@@ -74,6 +75,18 @@ export async function loadGroupDetails(groupId: string): Promise<GroupDetails> {
     suggestions: withoutBlocked(suggestions, blockedIds),
     blockedIds,
   };
+}
+
+/**
+ * Fill in list columns that an older database doesn't have yet (a migration that
+ * hasn't been run), so a screen shows the league instead of crashing on undefined.
+ */
+export function withGroupDefaults(group: Group): Group {
+  return { ...group, banned_artists: group.banned_artists ?? [] };
+}
+
+export function withRoundDefaults(round: Round): Round {
+  return { ...round, banned_artists: round.banned_artists ?? [] };
 }
 
 export function nameOf(members: Profile[], userId: string): string {
