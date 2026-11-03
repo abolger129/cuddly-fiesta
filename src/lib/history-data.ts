@@ -1,5 +1,6 @@
 import { maskBlocked } from '@/lib/blocking';
 import { check } from '@/lib/db';
+import { profilesOf } from '@/lib/group-data';
 import type { LeagueRecord } from '@/lib/history';
 import { loadBlockedIds } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +31,7 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
     supabase
       .from('group_members')
       .select(`group_id, profiles (${PROFILE_FIELDS})`)
-      .then(check<{ group_id: string; profiles: Profile }[]>),
+      .then(check<{ group_id: string; profiles: Profile | null }[]>),
     loadBlockedIds(),
   ]);
 
@@ -54,7 +55,7 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
     records.set(group.id, {
       group,
       members: maskBlocked(
-        memberRows.filter((m) => m.group_id === group.id).map((m) => m.profiles),
+        profilesOf(memberRows.filter((m) => m.group_id === group.id)),
         blockedIds
       ),
       rounds: group.rounds,
@@ -64,7 +65,7 @@ export async function loadLeagueHistory(): Promise<LeagueHistory> {
       guesses: group.guessing_enabled ? guesses.filter((g) => roundIds.has(g.round_id)) : [],
     });
   }
-  const me = memberRows.find((m) => m.profiles.id === userId)?.profiles ?? null;
+  const me = memberRows.find((m) => m.profiles?.id === userId)?.profiles ?? null;
   return { groups, records, yourTurn, me };
 }
 
