@@ -8,10 +8,10 @@ import { Caveat_600SemiBold } from '@expo-google-fonts/caveat';
 import { IBMPlexMono_400Regular, IBMPlexMono_600SemiBold } from '@expo-google-fonts/ibm-plex-mono';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
-import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, StyleSheet, useColorScheme } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -133,8 +133,93 @@ function OpenTappedNotification() {
   return null;
 }
 
+/**
+ * If a screen hits a bug while drawing, show what went wrong with a way back
+ * instead of closing the app. Plain Text and fixed colors on purpose: this has to
+ * work even when the fonts, theme or sign-in are what broke.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  // The splash screen may still be up if the error happened while starting.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  function goHome() {
+    retry();
+    try {
+      router.replace('/');
+    } catch {
+      // No navigator yet: retrying is all we can do.
+    }
+  }
+
+  return (
+    <ScrollView style={styles.errorScreen} contentContainerStyle={styles.errorContent}>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorBody}>
+        The Gauntlet hit a snag showing this screen. Try again, and if it keeps happening, send a screenshot of
+        this to the league host.
+      </Text>
+      <Text selectable style={styles.errorDetail}>
+        {error?.message || String(error)}
+      </Text>
+      <View style={styles.errorActions}>
+        <Text accessibilityRole="button" onPress={retry} style={[styles.errorButton, styles.errorPrimary]}>
+          Try again
+        </Text>
+        <Text accessibilityRole="button" onPress={goHome} style={styles.errorButton}>
+          Back to my leagues
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  errorScreen: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  errorContent: {
+    padding: 24,
+    paddingTop: 96,
+    gap: 16,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#15151B',
+  },
+  errorBody: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#15151B',
+  },
+  errorDetail: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#5B5B66',
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  },
+  errorActions: {
+    gap: 12,
+    paddingTop: 8,
+  },
+  errorButton: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    overflow: 'hidden',
+    color: Brand,
+    backgroundColor: '#EEF1FE',
+  },
+  errorPrimary: {
+    color: '#FFFFFF',
+    backgroundColor: Brand,
   },
 });
