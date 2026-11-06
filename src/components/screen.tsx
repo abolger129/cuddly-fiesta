@@ -12,8 +12,9 @@ type ScreenProps = PropsWithChildren<{
 /**
  * A scrolling screen with standard padding and optional pull-to-refresh.
  * Android draws edge to edge, so the window no longer shrinks for the keyboard; the
- * padding below lifts the scroll area above it so fields stay reachable. iOS handles
- * this itself through the automatic content inset.
+ * padding below lifts the scroll area above it so fields stay reachable. iOS does the
+ * same through automaticallyAdjustKeyboardInsets, which copes with a header above the
+ * screen where KeyboardAvoidingView would be off by the header's height.
  */
 export function Screen({ children, refreshing = false, onRefresh }: ScreenProps) {
   const android = Platform.OS === 'android';
@@ -22,6 +23,7 @@ export function Screen({ children, refreshing = false, onRefresh }: ScreenProps)
       <KeyboardAvoidingView behavior={android ? 'padding' : undefined} enabled={android} style={styles.container}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
+          automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
           refreshControl={
