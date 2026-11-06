@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -9,19 +9,27 @@ type ScreenProps = PropsWithChildren<{
   onRefresh?: () => void;
 }>;
 
-/** A scrolling screen with standard padding and optional pull-to-refresh. */
+/**
+ * A scrolling screen with standard padding and optional pull-to-refresh.
+ * Android draws edge to edge, so the window no longer shrinks for the keyboard; the
+ * padding below lifts the scroll area above it so fields stay reachable. iOS handles
+ * this itself through the automatic content inset.
+ */
 export function Screen({ children, refreshing = false, onRefresh }: ScreenProps) {
+  const android = Platform.OS === 'android';
   return (
     <ThemedView style={styles.container}>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        refreshControl={
-          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
-        }>
-        {children}
-      </ScrollView>
+      <KeyboardAvoidingView behavior={android ? 'padding' : undefined} enabled={android} style={styles.container}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.content}
+          refreshControl={
+            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
+          }>
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
