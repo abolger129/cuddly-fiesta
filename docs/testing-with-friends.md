@@ -74,3 +74,11 @@ The simulator can't cover everything, so try these yourself on the first build b
 - Check a round playlist appears on the round page once ranking starts, and opens in Spotify for a friend.
 - Drag songs into order on the ranking screen with your finger.
 - Allow notifications, have a friend start a round, and check the notification arrives and opens the round when tapped. Set a short timer (12 hours) to check the "time is almost up" reminder.
+
+## Bounced sign-in code emails
+
+Sign-in codes go out from your Gmail, so a code sent to an address that doesn't work bounces back to your inbox as "Delivery Status Notification (Failure)".
+
+- **crawlerrobo@gmail.com** is Google Play's pre-launch report robot. Each time you upload an Android build, Play runs it on a few test phones and it types that address into the sign-in screen. The app now refuses that address (and `example.com`-style test addresses, and slips like `gmail.coma`) before any email is sent, so these stop once the update is out.
+- To let the robot get past sign-in instead, open **Play Console > your app > Test and release > Testing > Pre-launch report > Settings**, and under **Sign-in credentials** choose **Provide credentials** with the App Review demo account. Otherwise leave it: the robot just stays on the sign-in screen.
+- A handful of bounces doesn't hurt your Gmail account. Gmail only worries when lots of mail goes to addresses that don't exist.

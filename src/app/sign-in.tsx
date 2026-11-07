@@ -10,6 +10,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, MaxContentWidth, OnBrand, Spacing } from '@/constants/theme';
 import { showAlert } from '@/lib/alert';
+import { emailProblemMessage } from '@/lib/email-check';
 import { openPrivacyPolicy, openTerms } from '@/lib/legal';
 import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/social-sign-in';
 import { supabase } from '@/lib/supabase';
@@ -50,6 +51,12 @@ export default function SignInScreen() {
   }
 
   async function sendCode() {
+    // Don't email robot test addresses or obvious typos: the bounce lands in Anna's inbox.
+    const problem = emailProblemMessage(email);
+    if (problem) {
+      showAlert('Could not send code', problem);
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
     setLoading(false);
