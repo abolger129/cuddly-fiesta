@@ -52,7 +52,7 @@ npm install
 
 5. Optional but recommended: turn on **Sign in with Apple** and **Google** by following [docs/sign-in-setup.md](docs/sign-in-setup.md). The emailed code keeps working either way. If you turn on Apple, also do step 7 there (an Apple key for the `apple-token` function), which App Review expects.
 
-Note: Supabase's built-in email sender only allows a few emails per hour. That's fine while testing; before inviting lots of friends, set up a free custom SMTP provider under **Authentication > Emails > SMTP Settings**.
+Note: Supabase's built-in email sender only allows a few emails per hour. That's fine while testing; before inviting lots of friends, set up a free custom SMTP provider under **Authentication > Emails > SMTP Settings**. The Gauntlet sends through the app's own Gmail, thegauntletapp@gmail.com: see [docs/app-accounts.md](docs/app-accounts.md).
 
 ### 3. Set up Spotify (free, but needs Premium)
 
@@ -76,6 +76,8 @@ Spotify requires the owner of a developer app to have **Spotify Premium**, and a
    ```bash
    npx supabase secrets set SPOTIFY_REFRESH_TOKEN=<token from the page>
    ```
+
+   Sign in as the Spotify account that should own the playlists. For The Gauntlet that's the app's own account (thegauntletapp@gmail.com), which must be added under **User Management** in the Spotify app first: see [docs/app-accounts.md](docs/app-accounts.md).
 
    Keep that token private: it lets anyone make playlists on your account. If playlists ever stop being made with "The playlist account needs reconnecting", repeat this step.
 
