@@ -1,9 +1,12 @@
-// Sign-in redirects (Google via Supabase, and Spotify) come back to the app as
-// deep links. The in-app browser reads them, but on Android the router sees them
-// too, and there is no screen at those paths, so send them home instead.
-const AUTH_REDIRECT_PATHS = ['auth-callback', 'spotify-auth'];
+import { safeAppPath } from '@/lib/deep-links';
 
+// Links that open the app (invites, sign-in redirects from Google and Spotify,
+// and Supabase's Site URL fallback such as musicleague://**) all pass through
+// here. Ones with no screen go home instead of to "Unmatched Route".
 export function redirectSystemPath({ path }: { path: string; initial: boolean }) {
-  if (AUTH_REDIRECT_PATHS.some((p) => path.includes(p))) return '/';
-  return path;
+  try {
+    return safeAppPath(path);
+  } catch {
+    return '/';
+  }
 }

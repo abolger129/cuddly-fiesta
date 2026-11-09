@@ -16,6 +16,8 @@ That covers `musicleague://auth-callback`, where Google sign-in returns to the a
 
 If you also test in Expo Go, add `exp://**` too.
 
+Put `musicleague://**` in **Redirect URLs** only, never in the **Site URL** box. The Site URL is a real address Supabase sends people to when nothing else matches (the web version's address, `https://abolger129.github.io/cuddly-fiesta/app/`, is a good choice). If it's set to `musicleague://**`, the app opens on a link that has no screen. The app now sends unknown links home instead of showing "Unmatched Route", but the Site URL should still be a real address.
+
 ## 2. Google Cloud: OAuth client
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project (for example "The Gauntlet").
