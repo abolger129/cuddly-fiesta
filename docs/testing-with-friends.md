@@ -61,7 +61,7 @@ For a new version, run the same build command; testers get the update in TestFli
 
 ## Before inviting people
 
-- **Spotify:** nobody needs adding in the Spotify dashboard. Every playlist goes on the app's Spotify account (thegauntletapp@gmail.com, see [app-accounts.md](app-accounts.md)), so just make sure the three Spotify functions are deployed and your account is connected (see the README).
+- **Spotify:** nobody needs adding in the Spotify dashboard. Every playlist goes on your Spotify account, so just make sure the three Spotify functions are deployed and your account is connected (see the README).
 - **Supabase:** run any new file in `supabase/migrations` you haven't run yet.
 - **Push notifications:** iPhone needs nothing extra: `eas build` offers to set up the push key with your Apple developer account, say yes. Android needs a free Firebase project: follow [android-push-notifications.md](android-push-notifications.md). Notifications don't work in Expo Go or the simulator.
 - **Email:** sign-in codes go out through Gmail SMTP from thegauntletapp@gmail.com ([app-accounts.md](app-accounts.md); Gmail allows a few hundred emails a day, which is fine for friends).

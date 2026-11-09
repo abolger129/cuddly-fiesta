@@ -77,8 +77,6 @@ Spotify requires the owner of a developer app to have **Spotify Premium**, and a
    npx supabase secrets set SPOTIFY_REFRESH_TOKEN=<token from the page>
    ```
 
-   Sign in as the Spotify account that should own the playlists. For The Gauntlet that's the app's own account (thegauntletapp@gmail.com), which must be added under **User Management** in the Spotify app first: see [docs/app-accounts.md](docs/app-accounts.md).
-
    Keep that token private: it lets anyone make playlists on your account. If playlists ever stop being made with "The playlist account needs reconnecting", repeat this step.
 
 A round's playlist is made as soon as ranking starts, and the league playlist updates itself as each round finishes, without anyone opening the app. (The database finds the function the first time anyone uses it after it's deployed, so the very first playlist may wait until someone opens the round.) This works in Expo Go too.
