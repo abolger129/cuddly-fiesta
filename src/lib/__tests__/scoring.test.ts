@@ -9,6 +9,7 @@ import {
   scoreGuesses,
   scoreRound,
   type ScoringRules,
+  votesBySong,
 } from '../scoring.ts';
 import type { Guess, Ranking } from '../types.ts';
 
@@ -125,4 +126,28 @@ test('imported votes keep their exact points instead of the position points', ()
   assert.equal(points.get('songA'), 13 + 1);
   assert.equal(points.get('songB'), 13 + 2);
   assert.equal(points.get('songC'), 0 + 3);
+});
+
+test('votesBySong lists each voter and the points they gave, most first', () => {
+  const rankings = [...rank('r1', 'bob', ['songA', 'songC']), ...rank('r1', 'cat', ['songC', 'songA'])];
+  const votes = votesBySong(rankings);
+  assert.deepEqual(votes.get('songA'), [
+    { voter_id: 'bob', points: 2 },
+    { voter_id: 'cat', points: 1 },
+  ]);
+  assert.deepEqual(votes.get('songC'), [
+    { voter_id: 'cat', points: 2 },
+    { voter_id: 'bob', points: 1 },
+  ]);
+});
+
+test('votesBySong uses imported points where a vote has them', () => {
+  const rankings: Ranking[] = [
+    { round_id: 'r1', voter_id: 'bob', submission_id: 'songA', position: 1, imported_points: 7 },
+    { round_id: 'r1', voter_id: 'bob', submission_id: 'songC', position: 2, imported_points: 0 },
+  ];
+  const votes = votesBySong(rankings);
+  assert.deepEqual(votes.get('songA'), [{ voter_id: 'bob', points: 7 }]);
+  assert.deepEqual(votes.get('songC'), [{ voter_id: 'bob', points: 0 }]);
+  assert.equal(scoreRound(rankings).get('songA'), 7);
 });

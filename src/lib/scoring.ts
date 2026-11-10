@@ -64,18 +64,35 @@ export function describeRules(rules: ScoringRules): string {
   return rules.downvotes ? `${points} Your last-place song loses a point.` : points;
 }
 
-/** Points per submission id for one round. */
-export function scoreRound(rankings: Ranking[], rules: ScoringRules = DEFAULT_RULES): Map<string, number> {
+/** The points one voter gave one song. */
+export type SongVote = { voter_id: string; points: number };
+
+/**
+ * Who gave each song how many points in one round, per submission id, most
+ * points first. Only for finished rounds: before that nobody may see who voted
+ * for what.
+ */
+export function votesBySong(rankings: Ranking[], rules: ScoringRules = DEFAULT_RULES): Map<string, SongVote[]> {
   const songsRankedByVoter = new Map<string, number>();
   for (const r of rankings) {
     songsRankedByVoter.set(r.voter_id, (songsRankedByVoter.get(r.voter_id) ?? 0) + 1);
   }
 
-  const points = new Map<string, number>();
+  const votes = new Map<string, SongVote[]>();
   for (const r of rankings) {
     const n = songsRankedByVoter.get(r.voter_id) ?? 0;
-    const p = r.imported_points ?? pointsForPosition(r.position, n, rules);
-    points.set(r.submission_id, (points.get(r.submission_id) ?? 0) + p);
+    const points = r.imported_points ?? pointsForPosition(r.position, n, rules);
+    votes.set(r.submission_id, [...(votes.get(r.submission_id) ?? []), { voter_id: r.voter_id, points }]);
+  }
+  for (const list of votes.values()) list.sort((a, b) => b.points - a.points);
+  return votes;
+}
+
+/** Points per submission id for one round. */
+export function scoreRound(rankings: Ranking[], rules: ScoringRules = DEFAULT_RULES): Map<string, number> {
+  const points = new Map<string, number>();
+  for (const [submissionId, votes] of votesBySong(rankings, rules)) {
+    points.set(submissionId, votes.reduce((sum, v) => sum + v.points, 0));
   }
   return points;
 }

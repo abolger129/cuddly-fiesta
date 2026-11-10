@@ -42,6 +42,8 @@ import {
   scoreGuesses,
   scoreRound,
   scoreVotesSoFar,
+  votesBySong,
+  type SongVote,
 } from '@/lib/scoring';
 import { songUrl } from '@/lib/song-links';
 import { supabase } from '@/lib/supabase';
@@ -755,6 +757,7 @@ function VotedOrSittingOut({ details, isCreator, onChanged }: StageProps) {
 function Results({ details, userId, isCreator, onChanged }: StageProps & { userId: string }) {
   const { group, round, submissions, rankings, guesses, members, comments } = details;
   const points = scoreRound(rankings, group);
+  const votes = votesBySong(rankings, group);
   const results = [...submissions].sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
   const winner = results[0];
   const theme = useTheme();
@@ -841,7 +844,8 @@ function Results({ details, userId, isCreator, onChanged }: StageProps & { userI
               />
               <View style={styles.creditNotes}>
                 {guessing && <GuessReveal submissionId={s.id} guesses={guesses} details={details} userId={userId} />}
-                <Comments
+                <SongVotes
+                  votes={votes.get(s.id) ?? []}
                   comments={comments.filter((c) => c.submission_id === s.id)}
                   pickedBy={s.user_id}
                   members={members}
@@ -926,13 +930,29 @@ function GuessReveal({
   );
 }
 
-function Comments({
+/** One line under a revealed song: a voter's points and comment, or the picker's own note. */
+type VoteLine = { voterId: string; points: number | null; comment: SongComment | undefined };
+
+function formatPoints(points: number): string {
+  if (points > 0) return `+${points}`;
+  if (points < 0) return `\u2212${-points}`;
+  return '0';
+}
+
+/**
+ * Under a revealed song: who gave it how many points, with their comment, like
+ * liner notes in the margin. The picker's own note comes first. Voters who gave
+ * it nothing and said nothing are listed together on one line.
+ */
+function SongVotes({
+  votes,
   comments,
   pickedBy,
   members,
   userId,
   onBlocked,
 }: {
+  votes: SongVote[];
   comments: SongComment[];
   /** Who picked the song, so their own comment on it can say so. */
   pickedBy: string;
@@ -941,36 +961,58 @@ function Comments({
   onBlocked: () => void;
 }) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  if (comments.length === 0) return null;
+  const commentBy = new Map(comments.map((c) => [c.voter_id, c]));
+  const voted = new Set(votes.map((v) => v.voter_id));
+  const lines: VoteLine[] = [
+    // Comments from people who didn't rank this song: the picker's own note.
+    ...comments
+      .filter((c) => !voted.has(c.voter_id))
+      .map((c) => ({ voterId: c.voter_id, points: null, comment: c })),
+    ...votes
+      .filter((v) => v.points !== 0 || commentBy.has(v.voter_id))
+      .map((v) => ({ voterId: v.voter_id, points: v.points, comment: commentBy.get(v.voter_id) })),
+  ];
+  const noPoints = votes.filter((v) => v.points === 0 && !commentBy.has(v.voter_id));
+  if (lines.length === 0 && noPoints.length === 0) return null;
   const memberIds = members.map((m) => m.id);
   return (
     <View style={styles.comments}>
-      {/* Comments sit in the margin like liner notes. Each player's name and margin line get their own color. */}
-      {comments.map((c) => {
-        const color = playerColor(c.voter_id, memberIds, scheme);
+      {/* Each player's name and margin line get their own color. */}
+      {lines.map(({ voterId, points, comment }) => {
+        const color = playerColor(voterId, memberIds, scheme);
         return (
-          <View key={c.voter_id} style={[styles.commentRow, { borderLeftColor: color }]}>
+          <View key={voterId} style={[styles.commentRow, { borderLeftColor: color }]}>
             <View style={styles.grow}>
-              <ThemedText type="smallBold" style={{ color }}>
-                {nameOf(members, c.voter_id)}
-                {c.voter_id === pickedBy && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {' '}
-                    · their pick
+              <View style={styles.voteHeader}>
+                <ThemedText type="smallBold" style={[styles.grow, { color }]}>
+                  {nameOf(members, voterId)}
+                  {voterId === pickedBy && (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {' '}
+                      · their pick
+                    </ThemedText>
+                  )}
+                </ThemedText>
+                {points !== null && (
+                  <ThemedText
+                    type="mono"
+                    style={styles.votePoints}
+                    accessibilityLabel={`${points} ${Math.abs(points) === 1 ? 'point' : 'points'}`}>
+                    {formatPoints(points)}
                   </ThemedText>
                 )}
-              </ThemedText>
-              <ThemedText>{c.body}</ThemedText>
+              </View>
+              {comment && <ThemedText>{comment.body}</ThemedText>}
             </View>
-            {c.voter_id !== userId && (
+            {comment && voterId !== userId && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Report ${nameOf(members, c.voter_id)}'s comment`}
+                accessibilityLabel={`Report ${nameOf(members, voterId)}'s comment`}
                 hitSlop={8}
                 onPress={async () => {
                   const blocked = await reportPlayer(
-                    { id: c.voter_id, name: nameOf(members, c.voter_id) },
-                    c.submission_id
+                    { id: voterId, name: nameOf(members, voterId) },
+                    comment.submission_id
                   );
                   if (blocked) onBlocked();
                 }}
@@ -983,6 +1025,11 @@ function Comments({
           </View>
         );
       })}
+      {noPoints.length > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          No points from {noPoints.map((v) => nameOf(members, v.voter_id)).join(', ')}
+        </ThemedText>
+      )}
     </View>
   );
 }
@@ -1058,6 +1105,14 @@ const styles = StyleSheet.create({
   comments: {
     gap: Spacing.three,
     paddingTop: Spacing.two,
+  },
+  voteHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
+  },
+  votePoints: {
+    fontFamily: Fonts.monoBold,
   },
   commentRow: {
     flexDirection: 'row',
