@@ -33,6 +33,7 @@ checks(migration, ok) as (values
   ('20261029060000_shuffled_song_order',      exists (select 1 from col where tbl = 'submissions' and c = 'play_order') and exists (select 1 from fn where name = 'shuffle_round_songs')),
   ('20261029070000_avatar_colors_and_stickers', exists (select 1 from col where tbl = 'profiles' and c = 'avatar_sticker') and exists (select 1 from col where tbl = 'profiles' and c = 'avatar_bg')),
   ('20261029080000_comment_on_own_song',      exists (select 1 from fn where name = 'save_my_song_comment')),
-  ('20261103000000_finish_round_when_picker_leaves', exists (select 1 from fn where name = 'remove_member' and body like '%round_voters%'))
+  ('20261103000000_finish_round_when_picker_leaves', exists (select 1 from fn where name = 'remove_member' and body like '%round_voters%')),
+  ('20261110000000_imported_points',          exists (select 1 from col where tbl = 'rankings' and c = 'imported_points'))
 )
 select migration, case when ok then 'ok' else 'MISSING' end as status from checks order by migration;
