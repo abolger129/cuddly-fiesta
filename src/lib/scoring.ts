@@ -19,6 +19,9 @@ import type { Group, Guess, Ranking, Submission } from './types';
  *   two songs to rank. Ignored when songs below the max go negative, since the
  *   bottom songs already lose points then.
  *
+ * Votes copied in from a league imported from another app keep that app's
+ * exact points (imported_points), whatever their position.
+ *
  * In groups with guessing turned on, each correct guess at who picked a song
  * earns the guesser GUESS_BONUS_POINTS (one point).
  */
@@ -71,7 +74,8 @@ export function scoreRound(rankings: Ranking[], rules: ScoringRules = DEFAULT_RU
   const points = new Map<string, number>();
   for (const r of rankings) {
     const n = songsRankedByVoter.get(r.voter_id) ?? 0;
-    points.set(r.submission_id, (points.get(r.submission_id) ?? 0) + pointsForPosition(r.position, n, rules));
+    const p = r.imported_points ?? pointsForPosition(r.position, n, rules);
+    points.set(r.submission_id, (points.get(r.submission_id) ?? 0) + p);
   }
   return points;
 }

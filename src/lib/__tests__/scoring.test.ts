@@ -113,3 +113,16 @@ test('leaderboard adds guess bonuses to ranking points', () => {
     { userId: 'anna', points: 1 },
   ]);
 });
+
+test('imported votes keep their exact points instead of the position points', () => {
+  const rankings: Ranking[] = [
+    { round_id: 'r1', voter_id: 'mel', submission_id: 'songA', position: 1, imported_points: 13 },
+    { round_id: 'r1', voter_id: 'mel', submission_id: 'songB', position: 2, imported_points: 13 },
+    { round_id: 'r1', voter_id: 'mel', submission_id: 'songC', position: 3, imported_points: 0 },
+    ...rank('r1', 'bob', ['songC', 'songB', 'songA']),
+  ];
+  const points = scoreRound(rankings, { points_cap: 13, downvotes: false, negative_points: false });
+  assert.equal(points.get('songA'), 13 + 1);
+  assert.equal(points.get('songB'), 13 + 2);
+  assert.equal(points.get('songC'), 0 + 3);
+});

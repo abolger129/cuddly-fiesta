@@ -86,6 +86,8 @@ export type Ranking = {
   voter_id: string;
   submission_id: string;
   position: number;
+  /** Exact points from a league imported from another app; used instead of the position's points. */
+  imported_points?: number | null;
 };
 
 /** A guess at who picked a song. */
