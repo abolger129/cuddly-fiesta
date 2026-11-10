@@ -33,6 +33,7 @@ import { confirmChoice } from '@/lib/confirm';
 import { alertOnError } from '@/lib/errors';
 import { nameOf } from '@/lib/group-data';
 import { findSimilarPicks, loadRoundDetails, type RoundDetails } from '@/lib/round-data';
+import { addRankingNote, rankingNoteRoom, splitRankingNote } from '@/lib/own-song-note';
 import { reportPlayer } from '@/lib/safety';
 import { describeSimilarPicks } from '@/lib/similar-picks';
 import {
@@ -333,8 +334,8 @@ function OwnSongComment({
         accessibilityLabel="Comment on your song"
       />
       <ThemedText type="small" themeColor="textSecondary">
-        Only you see it until the round ends, then it shows with the results. You can still change it
-        while ranking, until you lock in your ranking.
+        Only you see it until the round ends, then it shows first under your song in the results. You
+        can add more while ranking.
       </ThemedText>
       {changed && (
         <Button title={comment.trim() ? 'Save comment' : 'Remove comment'} onPress={save} loading={busy} />
@@ -496,6 +497,10 @@ function Voting({
   );
   const [busy, setBusy] = useState(false);
   const mySong = details.songs.find((s) => s.is_mine);
+  // What you said about your own song when you picked it. Anything you write
+  // while ranking is added after it rather than replacing it.
+  const myNote = mySong ? (details.comments.find((c) => c.submission_id === mySong.id)?.body ?? '') : '';
+  const [myAddition, setMyAddition] = useState('');
   const otherPlayers = members.filter((m) => m.id !== userId);
 
   function setGuess(submissionId: string, guessedUserId: string | undefined) {
@@ -529,12 +534,14 @@ function Voting({
         return;
       }
     }
-    // Your own song isn't ranked, but you can still comment on it.
-    const commented = [...order, ...(mySong ? [mySong] : [])].filter((s) => comments[s.id]?.trim());
+    // Your own song isn't ranked, but you can add to what you said about it.
+    const bodies: Record<string, string> = { ...comments };
+    if (mySong) bodies[mySong.id] = addRankingNote(myNote, myAddition);
+    const commented = [...order, ...(mySong ? [mySong] : [])].filter((s) => bodies[s.id]?.trim());
     const { error: commentError } = await supabase.rpc('save_song_comments', {
       rid: round.id,
       submission_ids: commented.map((s) => s.id),
-      bodies: commented.map((s) => comments[s.id].trim()),
+      bodies: commented.map((s) => bodies[s.id].trim()),
     });
     if (alertOnError('Could not save your comments', commentError)) {
       setBusy(false);
@@ -612,18 +619,36 @@ function Voting({
                   artSize={40}
                   credit={mySong.youtube_url ? <YoutubeTag /> : undefined}
                 />
-                <ThemedText type="small" themeColor="textSecondary">
-                  You can&apos;t rank your own pick, but you can say something about it. Nobody sees it
-                  until the round ends.
-                </ThemedText>
-                <TextField
-                  value={comments[mySong.id] ?? ''}
-                  onChangeText={(comment) => setComments((current) => ({ ...current, [mySong.id]: comment }))}
-                  placeholder="Say something about your song"
-                  maxLength={MAX_COMMENT_LENGTH}
-                  multiline
-                  accessibilityLabel="Comment on your song"
-                />
+                {myNote ? (
+                  <>
+                    <View style={styles.ownNote}>
+                      <ThemedText type="mono" themeColor="textSecondary">
+                        What you said when you picked it
+                      </ThemedText>
+                      <ThemedText>{myNote}</ThemedText>
+                    </View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      You can&apos;t rank your own pick, but you can add to what you said. It shows under
+                      your first note, marked as added while ranking. Nobody sees either until the round
+                      ends.
+                    </ThemedText>
+                  </>
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    You can&apos;t rank your own pick, but you can say something about it. Nobody sees it
+                    until the round ends.
+                  </ThemedText>
+                )}
+                {rankingNoteRoom(myNote) > 0 && (
+                  <TextField
+                    value={myAddition}
+                    onChangeText={setMyAddition}
+                    placeholder={myNote ? 'Add something now you’ve heard the others' : 'Say something about your song'}
+                    maxLength={rankingNoteRoom(myNote)}
+                    multiline
+                    accessibilityLabel={myNote ? 'Add to your comment on your song' : 'Comment on your song'}
+                  />
+                )}
               </Card>
             )}
             <Button
@@ -930,6 +955,24 @@ function GuessReveal({
   );
 }
 
+/** A comment's text, with anything the picker added while ranking shown below a small label. */
+function CommentBody({ body }: { body: string }) {
+  const { note, addedWhileRanking } = splitRankingNote(body);
+  return (
+    <>
+      <ThemedText>{note}</ThemedText>
+      {addedWhileRanking !== null && (
+        <View style={styles.ownNote}>
+          <ThemedText type="mono" themeColor="textSecondary">
+            Added while ranking
+          </ThemedText>
+          <ThemedText>{addedWhileRanking}</ThemedText>
+        </View>
+      )}
+    </>
+  );
+}
+
 /** One line under a revealed song: a voter's points and comment, or the picker's own note. */
 type VoteLine = { voterId: string; points: number | null; comment: SongComment | undefined };
 
@@ -980,7 +1023,7 @@ function SongVotes({
       {/* Each player's name and margin line get their own color. */}
       {lines.map(({ voterId, points, comment }) => {
         const color = playerColor(voterId, memberIds, scheme);
-        return (
+        const row = (
           <View key={voterId} style={[styles.commentRow, { borderLeftColor: color }]}>
             <View style={styles.grow}>
               <View style={styles.voteHeader}>
@@ -1002,27 +1045,28 @@ function SongVotes({
                   </ThemedText>
                 )}
               </View>
-              {comment && <ThemedText>{comment.body}</ThemedText>}
+              {comment && <CommentBody body={comment.body} />}
             </View>
-            {comment && voterId !== userId && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Report ${nameOf(members, voterId)}'s comment`}
-                hitSlop={8}
-                onPress={async () => {
-                  const blocked = await reportPlayer(
-                    { id: voterId, name: nameOf(members, voterId) },
-                    comment.submission_id
-                  );
-                  if (blocked) onBlocked();
-                }}
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="mono" themeColor="textSecondary">
-                  Report
-                </ThemedText>
-              </Pressable>
-            )}
           </View>
+        );
+        // Reporting stays available (App Store rules ask for it) but out of the way:
+        // hold a comment to report it, or use the player's menu on the league screen.
+        if (!comment || voterId === userId) return row;
+        const report = async () => {
+          const blocked = await reportPlayer({ id: voterId, name: nameOf(members, voterId) }, comment.submission_id);
+          if (blocked) onBlocked();
+        };
+        return (
+          <Pressable
+            key={voterId}
+            onLongPress={report}
+            accessibilityHint="Hold to report this comment"
+            accessibilityActions={[{ name: 'report', label: 'Report comment' }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'report') report();
+            }}>
+            {row}
+          </Pressable>
         );
       })}
       {noPoints.length > 0 && (
@@ -1105,6 +1149,10 @@ const styles = StyleSheet.create({
   comments: {
     gap: Spacing.three,
     paddingTop: Spacing.two,
+  },
+  ownNote: {
+    gap: Spacing.half,
+    paddingTop: Spacing.one,
   },
   voteHeader: {
     flexDirection: 'row',
